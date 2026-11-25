@@ -59,6 +59,15 @@ class MainActivity : Activity() {
     private fun gradient(colors: IntArray, radius: Int): GradientDrawable =
         GradientDrawable(GradientDrawable.Orientation.TL_BR, colors).apply { cornerRadius = dp(radius).toFloat() }
 
+    private fun glass(radius: Int = 20, focused: Boolean = false): GradientDrawable =
+        GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            intArrayOf(0x663C4658, 0x55303A4B, 0x66302B3A)
+        ).apply {
+            cornerRadius = dp(radius).toFloat()
+            setStroke(dp(if (focused) 2 else 1), if (focused) gold else 0x88FFFFFF.toInt())
+        }
+
     private fun label(value: String, size: Float, color: Int = white, bold: Boolean = false): TextView =
         TextView(this).apply {
             text = value
@@ -155,14 +164,24 @@ class MainActivity : Activity() {
     private fun home() {
         val wide = resources.configuration.screenWidthDp >= 600
         val hero = FrameLayout(this).apply {
-            background = shape(0xA51B1520.toInt(), 26, 0x88E4BD79.toInt())
+            background = shape(0xA51B1520.toInt(), 26, 0x99FFFFFF.toInt())
             clipToOutline = true
             elevation = dp(8).toFloat()
         }
+        val tree = ImageView(this).apply {
+            setImageResource(R.drawable.christmas_tree_feature)
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            contentDescription = "Пышная рождественская ёлка с красными и золотыми украшениями"
+        }
+        hero.addView(tree, FrameLayout.LayoutParams(if (wide) dp(300) else dp(178), -1, Gravity.END or Gravity.CENTER_VERTICAL))
         val copy = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(20), dp(14), dp(8), dp(14))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(0xF00B101B.toInt(), 0xB80B101B.toInt(), 0x000B101B)
+            )
         }
         copy.addView(label("ЗИМА, КОТОРАЯ\\nОЖИВАЕТ ДОМА", if (wide) 25f else 19f, white, true))
         copy.addView(label("Пусть каждый вечер будет\\nнаполнен теплом и чудом.", 12f, Color.rgb(255, 224, 185), true).apply {
@@ -193,10 +212,7 @@ class MainActivity : Activity() {
                 val card = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
                     gravity = Gravity.CENTER_VERTICAL
-                    background = gradient(
-                        if (index % 2 == 0) intArrayOf(Color.rgb(116, 20, 39), Color.rgb(66, 9, 27))
-                        else intArrayOf(Color.rgb(88, 19, 37), Color.rgb(48, 8, 25)), 20
-                    )
+                    background = glass(20)
                     setPadding(dp(14), dp(12), dp(10), dp(12))
                     isFocusable = true
                     isClickable = true
@@ -207,8 +223,7 @@ class MainActivity : Activity() {
                 card.addView(label(item.third, 10f, Color.rgb(238, 218, 203)).apply { maxLines = 2 })
                 card.setOnClickListener { selected = item.first; render() }
                 card.setOnFocusChangeListener { v, focused ->
-                    v.background = if (focused) shape(Color.rgb(126, 33, 48), 20, gold)
-                    else gradient(intArrayOf(Color.rgb(102, 18, 38), Color.rgb(48, 8, 25)), 20)
+                    v.background = glass(20, focused)
                     v.scaleX = if (focused) 1.035f else 1f
                     v.scaleY = if (focused) 1.035f else 1f
                 }
@@ -273,7 +288,7 @@ class MainActivity : Activity() {
                 val card = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
                     gravity = Gravity.CENTER
-                    background = shape(ivory, 18, 0x55FFFFFF)
+                    background = glass(18)
                     setPadding(dp(5), dp(9), dp(5), dp(9))
                     isFocusable = true
                     isClickable = true
@@ -283,14 +298,14 @@ class MainActivity : Activity() {
                     if (icon != null) setImageDrawable(icon)
                     scaleType = ImageView.ScaleType.FIT_CENTER
                 }, LinearLayout.LayoutParams(dp(42), dp(42)))
-                card.addView(label(info.loadLabel(packageManager).toString(), 11f, wine, true).apply {
+                card.addView(label(info.loadLabel(packageManager).toString(), 11f, white, true).apply {
                     gravity = Gravity.CENTER
                     maxLines = 2
                     textAlignment = View.TEXT_ALIGNMENT_CENTER
                 })
                 card.setOnClickListener { launch(info.activityInfo.packageName) }
                 card.setOnFocusChangeListener { v, focused ->
-                    v.background = shape(if (focused) Color.rgb(255, 225, 193) else ivory, 18, if (focused) red else 0x55FFFFFF)
+                    v.background = glass(18, focused)
                     v.scaleX = if (focused) 1.04f else 1f
                     v.scaleY = if (focused) 1.04f else 1f
                 }
@@ -324,7 +339,7 @@ class MainActivity : Activity() {
     private fun settings() {
         heading("НАСТРОЙКИ ПРАЗДНИЧНОГО ЭКРАНА")
         val info = label("❄  Рождественская красно-белая тема\n\n✦  Снежные эффекты на фоне\n\n🎮  Управление пультом: стрелки, OK и Back\n\n📱  Сенсорное управление поддерживается\n\n🛡  Системные приложения и прошивка не изменяются", 15f, wine)
-        info.background = shape(ivory, 22, 0xFFFFDCA7.toInt())
+        info.background = shape(0xDDF8F3EA.toInt(), 22, 0xAAFFFFFF.toInt())
         info.setPadding(dp(18), dp(18), dp(18), dp(18))
         content.addView(info)
         actionCard("↻   Обновить список приложений") { render() }
