@@ -79,7 +79,7 @@ class MainActivity : Activity() {
         super.onResume()
         newYearHandler.removeCallbacks(newYearCheck)
         newYearHandler.post(newYearCheck)
-        if (wallpaperPrefs.getBoolean("jingle_music_enabled", false)) musicPlayer.start()
+        if (wallpaperPrefs.getBoolean("jingle_music_enabled", true)) musicPlayer.start()
     }
 
     override fun onPause() {
@@ -422,7 +422,7 @@ class MainActivity : Activity() {
     }
 
     private fun toggleMusic() {
-        val enabled = !wallpaperPrefs.getBoolean("jingle_music_enabled", false)
+        val enabled = !wallpaperPrefs.getBoolean("jingle_music_enabled", true)
         wallpaperPrefs.edit().putBoolean("jingle_music_enabled", enabled).apply()
         if (enabled && !isFinishing) musicPlayer.start() else musicPlayer.stop()
         render()
@@ -539,7 +539,7 @@ class MainActivity : Activity() {
         info.setPadding(dp(18), dp(18), dp(18), dp(18))
         content.addView(info)
         actionCard("🕰   Выбрать дизайн ледяных часов") { chooseClockSkin() }
-        actionCard("♫   Фоновая музыка: " + if (wallpaperPrefs.getBoolean("jingle_music_enabled", false)) "ВКЛ" else "ВЫКЛ") { toggleMusic() }
+        actionCard("♫   Фоновая музыка: " + if (wallpaperPrefs.getBoolean("jingle_music_enabled", true)) "ВКЛ" else "ВЫКЛ") { toggleMusic() }
         actionCard("🎆   Новогодний сюрприз: " + if (wallpaperPrefs.getBoolean("new_year_enabled", true)) "ВКЛ" else "ВЫКЛ") { toggleNewYear() }
         actionCard("🖼   Выбрать свой фон") { chooseWallpaper() }
         actionCard("↺   Вернуть праздничный фон") { resetWallpaper() }
