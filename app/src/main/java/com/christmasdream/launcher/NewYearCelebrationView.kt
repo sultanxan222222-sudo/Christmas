@@ -77,16 +77,40 @@ class NewYearCelebrationView(context: Context) : View(context) {
             }
         }
 
-        // Sleigh silhouette glides across the upper sky during the third bell.
+        // Glowing Christmas tree with animated coloured lights on the lower-left edge.
+        val treeX = w * .13f
+        val treeBase = h * .88f
+        p.style = Paint.Style.FILL
+        p.color = 0xFF164C3A.toInt()
+        val tree = android.graphics.Path().apply {
+            moveTo(treeX, h*.48f); lineTo(treeX-w*.085f,h*.67f); lineTo(treeX-w*.045f,h*.67f)
+            lineTo(treeX-w*.12f,h*.80f); lineTo(treeX+w*.12f,h*.80f); lineTo(treeX+w*.045f,h*.67f)
+            lineTo(treeX+w*.085f,h*.67f); close()
+        }
+        c.drawPath(tree,p)
+        p.color = 0xFF9A6235.toInt(); c.drawRect(treeX-w*.018f,h*.80f,treeX+w*.018f,treeBase,p)
+        for(i in 0 until 11) {
+            val yy=h*(.55f+i*.025f); val spread=w*(.018f+i*.006f)
+            p.color = when((i+(progress*18).toInt())%3){0->0xFFFFD65C.toInt();1->0xFFFF526B.toInt();else->0xFF79DFFF.toInt()}
+            p.alpha = (150+105*kotlin.math.abs(kotlin.math.sin(progress*18+i))).toInt().coerceIn(0,255)
+            c.drawCircle(treeX+(if(i%2==0) -spread else spread),yy,dp(3).toFloat(),p)
+        }
+        p.alpha=255
+        // Draw a small sleigh and two reindeer as vector shapes, moving across the sky.
         if (progress in .30f.. .76f) {
             val t = (progress - .30f) / .46f
-            val x = (-.2f + t * 1.4f) * w
+            val x = (-.22f + t * 1.44f) * w
             val y = h * (.20f + kotlin.math.sin(t * Math.PI).toFloat() * .035f)
-            p.color = 0xFFFFDFA3.toInt()
-            p.textSize = dp(34).toFloat()
-            p.typeface = Typeface.DEFAULT_BOLD
-            c.drawText("🦌  🛷", x, y, p)
-            p.textSize = dp(13).toFloat()
+            p.color = 0xFFFFDFA3.toInt(); p.strokeWidth=dp(2).toFloat(); p.style=Paint.Style.STROKE
+            c.drawLine(x,y,x+dp(38),y-dp(5),p)
+            c.drawLine(x+dp(38),y-dp(5),x+dp(60),y,p)
+            c.drawLine(x+dp(5),y+dp(13),x+dp(55),y+dp(13),p)
+            c.drawArc(x+dp(4),y+dp(4),x+dp(57),y+dp(23),0f,180f,false,p)
+            p.style=Paint.Style.FILL
+            c.drawCircle(x-dp(8),y-dp(3),dp(5).toFloat(),p)
+            c.drawCircle(x-dp(21),y-dp(3),dp(5).toFloat(),p)
+            c.drawLine(x-dp(8),y-dp(3),x-dp(13),y-dp(14),p)
+            c.drawLine(x-dp(21),y-dp(3),x-dp(26),y-dp(14),p)
         }
 
         // Main greeting fades in after the Santa greeting starts.
