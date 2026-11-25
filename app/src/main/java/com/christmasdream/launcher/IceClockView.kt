@@ -12,7 +12,7 @@ import kotlin.math.sin
 /** Live analog ice clock. The four skins share the same real device-time mechanism. */
 class IceClockView(context: Context, var skin: Int = 0) : View(context) {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val tick = Runnable { invalidate(); postDelayed(this, 1000L) }
+    private val tick = Runnable { invalidate(); postDelayed(tick, 1000L) }
     init { contentDescription = "Живые аналоговые часы"; isFocusable = false }
     override fun onAttachedToWindow() { super.onAttachedToWindow(); post(tick) }
     override fun onDetachedFromWindow() { removeCallbacks(tick); super.onDetachedFromWindow() }
