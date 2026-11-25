@@ -5,7 +5,9 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -23,6 +25,7 @@ import android.widget.TextView
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.random.Random
 
 class MainActivity : Activity() {
     private val red = Color.rgb(174, 22, 43)
