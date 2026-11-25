@@ -338,11 +338,12 @@ class MainActivity : Activity() {
         return super.onKeyDown(keyCode, event)
     }
 
+    private data class SnowFlake(var x: Float, var y: Float, val radius: Float, val speed: Float, val drift: Float)
+
     private inner class SnowView : View(this@MainActivity) {
-        private data class Flake(var x: Float, var y: Float, val radius: Float, val speed: Float, val drift: Float)
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         private val flakes = List(62) {
-            Flake(Random.nextFloat(), Random.nextFloat(), 1.2f + Random.nextFloat() * 2.6f, 0.0015f + Random.nextFloat() * 0.0035f, (Random.nextFloat() - 0.5f) * 0.0008f)
+            SnowFlake(Random.nextFloat(), Random.nextFloat(), 1.2f + Random.nextFloat() * 2.6f, 0.0015f + Random.nextFloat() * 0.0035f, (Random.nextFloat() - 0.5f) * 0.0008f)
         }
         private val animator = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 16000L
