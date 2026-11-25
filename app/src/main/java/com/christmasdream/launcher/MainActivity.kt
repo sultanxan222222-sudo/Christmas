@@ -14,7 +14,8 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
-import android.media.ToneGenerator
+import android.media.AudioTrack
+import android.media.AudioFormat
 import android.media.AudioManager
 import java.util.Calendar
 import android.view.Gravity
@@ -54,7 +55,6 @@ class MainActivity : Activity() {
     private var newYearOverlay: NewYearCelebrationView? = null
     private var santaTts: TextToSpeech? = null
     private var ttsReady = false
-    private var bellPlayer: ToneGenerator? = null
     private val newYearCheck = object : Runnable {
         override fun run() {
             checkNewYearMoment()
@@ -71,7 +71,6 @@ class MainActivity : Activity() {
             ttsReady = status == TextToSpeech.SUCCESS
             if (ttsReady) santaTts?.language = Locale("ru", "RU")
         }
-        bellPlayer = try { ToneGenerator(AudioManager.STREAM_MUSIC, 55) } catch (_: Exception) { null }
     }
 
     override fun onResume() {
@@ -87,8 +86,6 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         newYearHandler.removeCallbacks(newYearCheck)
-        bellPlayer?.release()
-        bellPlayer = null
         santaTts?.stop()
         santaTts?.shutdown()
         santaTts = null
@@ -108,16 +105,40 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun playIceBell(durationMs: Int) {
+        try {
+            val sampleRate = 22050
+            val count = sampleRate * durationMs / 1000
+            val pcm = ShortArray(count) { index ->
+                val t = index.toDouble() / sampleRate
+                val decay = kotlin.math.exp(-4.2 * t)
+                val fundamental = kotlin.math.sin(2.0 * Math.PI * 880.0 * t)
+                val overtone = 0.52 * kotlin.math.sin(2.0 * Math.PI * 1320.0 * t)
+                val shimmer = 0.24 * kotlin.math.sin(2.0 * Math.PI * 1760.0 * t)
+                ((fundamental + overtone + shimmer) / 1.76 * decay * 0.48 * Short.MAX_VALUE).toInt().toShort()
+            }
+            val track = AudioTrack(
+                AudioManager.STREAM_MUSIC, sampleRate, AudioFormat.CHANNEL_OUT_MONO,
+                AudioFormat.ENCODING_PCM_16BIT, pcm.size * 2, AudioTrack.MODE_STATIC
+            )
+            track.write(pcm, 0, pcm.size)
+            track.play()
+            newYearHandler.postDelayed({
+                try { track.stop() } catch (_: Exception) { }
+                track.release()
+            }, durationMs.toLong() + 250L)
+        } catch (_: Exception) { }
+    }
+
     private fun startNewYearCelebration() {
         if (newYearOverlay != null) return
         newYearOverlay = NewYearCelebrationView(this)
         rootFrame.addView(newYearOverlay, FrameLayout.LayoutParams(-1, -1))
         newYearOverlay?.bringToFront()
         // Three distinct bell chimes, followed by a cheerful spoken greeting.
-        val tone = ToneGenerator.TONE_PROP_BEEP2
-        newYearHandler.postDelayed({ bellPlayer?.startTone(tone, 420) }, 0L)
-        newYearHandler.postDelayed({ bellPlayer?.startTone(tone, 420) }, 850L)
-        newYearHandler.postDelayed({ bellPlayer?.startTone(tone, 650) }, 1700L)
+        newYearHandler.postDelayed({ playIceBell(520) }, 0L)
+        newYearHandler.postDelayed({ playIceBell(520) }, 850L)
+        newYearHandler.postDelayed({ playIceBell(760) }, 1700L)
         newYearHandler.postDelayed({
             if (ttsReady) {
                 val params = android.os.Bundle().apply {
