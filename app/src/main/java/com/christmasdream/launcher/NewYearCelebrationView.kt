@@ -60,7 +60,7 @@ class NewYearCelebrationView(context: Context) : View(context) {
             centers.forEachIndexed { index, center ->
                 val local = ((progress * 1.65f + index * .29f) % 1f)
                 val radius = 12f + local * (w.coerceAtMost(h) * .16f)
-                p.strokeWidth = dp(1.5f)
+                p.strokeWidth = dp(1).toFloat()
                 p.style = Paint.Style.STROKE
                 p.color = if (index % 2 == 0) 0xFFFFD27A.toInt() else 0xFFBDEBFF.toInt()
                 p.alpha = (burstAlpha * (1f - local) * 230).toInt().coerceIn(0, 255)
