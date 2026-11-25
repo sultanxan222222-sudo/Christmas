@@ -1,5 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Some TCL/Android TV firmware does not expose Leanback as a required system feature. -->
+    <!-- Same TV compatibility declarations as the working Matrix TV build. -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <application android:extractNativeLibs="true">
+        <activity
+            android:name=".MainActivity"
+            android:screenOrientation="landscape" />
+    </application>
 </manifest>
