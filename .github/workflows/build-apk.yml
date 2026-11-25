@@ -1,4 +1,4 @@
-name: Build Christmas Dream Launcher APK
+name: Build Christmas Dream Launcher APKs
 on:
   push:
     branches: [ main ]
@@ -34,12 +34,19 @@ jobs:
           curl -fL --retry 3 "https://images.unsplash.com/vector-1763266642939-0428c7297e25?auto=format&fit=crop&fm=jpg&ixlib=rb-4.1.0&q=90&w=2400&h=1350" -o app/src/main/res/drawable-nodpi/christmas_background_tv.jpg
           curl -fL --retry 3 "https://images.pexels.com/photos/29615964/pexels-photo-29615964.jpeg?auto=compress&cs=tinysrgb&w=1400" -o app/src/main/res/drawable-nodpi/christmas_tree_feature.jpg
           file app/src/main/res/drawable-nodpi/christmas_background_*.jpg app/src/main/res/drawable-nodpi/christmas_tree_feature.jpg
-      - name: Build debug APK
-        run: gradle --no-daemon assembleDebug
-      - name: Upload APK
+      - name: Build phone and TV variants
+        run: gradle --no-daemon assemblePhoneDebug assembleTvDebug
+      - name: Upload phone APK
         uses: actions/upload-artifact@v4
         with:
-          name: Christmas-Dream-Launcher-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: Christmas-Dream-Launcher-phone
+          path: app/build/outputs/apk/phone/debug/app-phone-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload TV APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Christmas-Dream-Launcher-TV
+          path: app/build/outputs/apk/tv/debug/app-tv-debug.apk
           if-no-files-found: error
           retention-days: 14
