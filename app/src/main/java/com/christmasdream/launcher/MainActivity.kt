@@ -356,10 +356,14 @@ class MainActivity : Activity() {
         }
         heading("МОИ КАРТОЧКИ")
         content.addView(label("Добавляй приложения на главный экран или убирай карточки без удаления самих приложений.", 11f, ivory))
-        actionCard("＋  Добавить карточку") { manageHomeCards(true) }
-        actionCard("−  Удалить карточку") { manageHomeCards(false) }
+        actionCard("＋  Добавить карточку приложения") { manageHomeCards(true) }
+        actionCard("−  Удалить карточку приложения") { manageHomeCards(false) }
+        actionCard("＋  Добавить карточку раздела") { manageHomeSections(true) }
+        actionCard("−  Удалить карточку раздела") { manageHomeSections(false) }
         val pinned = pinnedApps()
         if (pinned.isNotEmpty()) appGrid(pinned)
+        val pinnedSections = wallpaperPrefs.getStringSet("home_card_sections", emptySet()) ?: emptySet()
+        pinnedSections.forEach { section -> actionCard("✦  $section") { selected = section; render() } }
         heading("БЫСТРЫЙ ДОСТУП")
         appGrid(installedApps().take(if (wide) 12 else 8))
     }
@@ -386,6 +390,24 @@ class MainActivity : Activity() {
                 wallpaperPrefs.edit().putStringSet("home_card_packages", current).apply()
                 render()
                 android.widget.Toast.makeText(this, if (add) "Карточка добавлена" else "Карточка убрана. Приложение осталось установленным.", android.widget.Toast.LENGTH_SHORT).show()
+            }.setNegativeButton("Отмена", null).show()
+    }
+
+    private fun manageHomeSections(add: Boolean) {
+        val available = sections.filter { it != "Главная" }
+        val current = (wallpaperPrefs.getStringSet("home_card_sections", emptySet()) ?: emptySet()).toMutableSet()
+        val candidates = if (add) available.filter { it !in current } else available.filter { it in current }
+        if (candidates.isEmpty()) {
+            android.widget.Toast.makeText(this, if (add) "Все разделы уже добавлены" else "Добавленных разделов нет", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle(if (add) "Добавить карточку раздела" else "Убрать карточку раздела")
+            .setItems(candidates.toTypedArray()) { _, which ->
+                val section = candidates[which]
+                if (add) current.add(section) else current.remove(section)
+                wallpaperPrefs.edit().putStringSet("home_card_sections", current).apply()
+                render()
             }.setNegativeButton("Отмена", null).show()
     }
 
