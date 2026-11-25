@@ -40,6 +40,9 @@ class MainActivity : Activity() {
     private lateinit var content: LinearLayout
     private lateinit var nav: LinearLayout
     private lateinit var snow: SnowView
+    private lateinit var wallpaperView: ImageView
+    private val wallpaperPrefs by lazy { getSharedPreferences("christmas_dream_settings", MODE_PRIVATE) }
+    private val wallpaperRequestCode = 4107
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,12 +82,16 @@ class MainActivity : Activity() {
 
     private fun buildUi() {
         val frame = FrameLayout(this)
-        val wallpaper = ImageView(this).apply {
-            setImageResource(if (resources.configuration.screenWidthDp >= 600) R.drawable.christmas_background_tv else R.drawable.christmas_background_phone)
+        wallpaperView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
-            contentDescription = "Праздничный зимний интерьер"
+            contentDescription = "Фоновое изображение лаунчера"
+            val saved = wallpaperPrefs.getString("custom_wallpaper_uri", null)
+            if (saved != null) {
+                try { setImageURI(android.net.Uri.parse(saved)) }
+                catch (_: Exception) { setDefaultWallpaper() }
+            } else setDefaultWallpaper()
         }
-        frame.addView(wallpaper, FrameLayout.LayoutParams(-1, -1))
+        frame.addView(wallpaperView, FrameLayout.LayoutParams(-1, -1))
         frame.addView(View(this).apply { setBackgroundColor(0x77070D18) }, FrameLayout.LayoutParams(-1, -1))
         val shell = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -342,8 +349,57 @@ class MainActivity : Activity() {
         info.background = shape(0xDDF8F3EA.toInt(), 22, 0xAAFFFFFF.toInt())
         info.setPadding(dp(18), dp(18), dp(18), dp(18))
         content.addView(info)
+        actionCard("🖼   Выбрать свой фон") { chooseWallpaper() }
+        actionCard("↺   Вернуть праздничный фон") { resetWallpaper() }
         actionCard("↻   Обновить список приложений") { render() }
         actionCard("⌂   Вернуться к штатному экрану TCL") { returnToStock() }
+    }
+
+    private fun setDefaultWallpaper() {
+        wallpaperView.setImageResource(
+            if (resources.configuration.screenWidthDp >= 600)
+                R.drawable.christmas_background_tv else R.drawable.christmas_background_phone
+        )
+    }
+
+    private fun chooseWallpaper() {
+        val picker = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "image/*"
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+        }
+        try { startActivityForResult(picker, wallpaperRequestCode) }
+        catch (_: Exception) {
+            android.widget.Toast.makeText(this, "Не удалось открыть выбор изображения", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun resetWallpaper() {
+        wallpaperPrefs.edit().remove("custom_wallpaper_uri").apply()
+        setDefaultWallpaper()
+        android.widget.Toast.makeText(this, "Праздничный фон восстановлен", android.widget.Toast.LENGTH_SHORT).show()
+    }
+
+    @Deprecated("Deprecated in Android API; kept for broad device compatibility")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != wallpaperRequestCode || resultCode != RESULT_OK) return
+        val uri = data?.data ?: return
+        try {
+            val permission = data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION
+            contentResolver.takePersistableUriPermission(uri, permission)
+            wallpaperPrefs.edit().putString("custom_wallpaper_uri", uri.toString()).apply()
+            wallpaperView.setImageURI(uri)
+            android.widget.Toast.makeText(this, "Ваш фон установлен", android.widget.Toast.LENGTH_SHORT).show()
+        } catch (_: Exception) {
+            try {
+                wallpaperView.setImageURI(uri)
+                wallpaperPrefs.edit().putString("custom_wallpaper_uri", uri.toString()).apply()
+                android.widget.Toast.makeText(this, "Фон установлен", android.widget.Toast.LENGTH_SHORT).show()
+            } catch (_: Exception) {
+                android.widget.Toast.makeText(this, "Не удалось загрузить это изображение", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     private fun actionCard(value: String, action: () -> Unit) {
