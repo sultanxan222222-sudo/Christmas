@@ -141,9 +141,15 @@ class MainActivity : Activity() {
     }
 
     private fun installedApps(): List<android.content.pm.ResolveInfo> {
-        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        val list = packageManager.queryIntentActivities(intent, PackageManager.MATCH_ALL)
-        return list.filter { it.activityInfo.packageName != packageName }.distinctBy { it.activityInfo.packageName }.sortedBy { it.loadLabel(packageManager).toString().lowercase(Locale.getDefault()) }
+        // Android TV apps often expose LEANBACK_LAUNCHER instead of LAUNCHER.
+        val phoneIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val tvIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER)
+        val combined = packageManager.queryIntentActivities(phoneIntent, PackageManager.MATCH_ALL) +
+            packageManager.queryIntentActivities(tvIntent, PackageManager.MATCH_ALL)
+        return combined
+            .filter { it.activityInfo.packageName != packageName }
+            .distinctBy { it.activityInfo.packageName }
+            .sortedBy { it.loadLabel(packageManager).toString().lowercase(Locale.getDefault()) }
     }
 
     private fun launch(pkg: String) {
