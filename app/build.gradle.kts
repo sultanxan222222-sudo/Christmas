@@ -4,7 +4,8 @@ plugins {
 }
 android {
     namespace = "com.christmasdream.launcher"
-    compileSdk = 35
+    // Match the SDK level used by the TV-compatible Matrix build.
+    compileSdk = 36
     defaultConfig {
         applicationId = "com.christmasdream.launcher"
         minSdk = 23
@@ -21,6 +22,8 @@ android {
             dimension = "device"
             applicationIdSuffix = ".tv"
             versionNameSuffix = "-tv"
+            // The TV build follows the same Android 8+ baseline as the proven Matrix TV app.
+            minSdk = 26
         }
     }
     compileOptions {
@@ -28,4 +31,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+    packaging {
+        jniLibs {
+            // Match the packaging mode used by the successfully installed Matrix TV APK.
+            useLegacyPackaging = true
+        }
+    }
 }
