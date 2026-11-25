@@ -55,6 +55,8 @@ class MainActivity : Activity() {
     private var newYearOverlay: NewYearCelebrationView? = null
     private var santaTts: TextToSpeech? = null
     private var ttsReady = false
+    private val musicPlayer = JingleMusicPlayer()
+    private var iceClock: IceClockView? = null
     private val newYearCheck = object : Runnable {
         override fun run() {
             checkNewYearMoment()
@@ -77,10 +79,12 @@ class MainActivity : Activity() {
         super.onResume()
         newYearHandler.removeCallbacks(newYearCheck)
         newYearHandler.post(newYearCheck)
+        if (wallpaperPrefs.getBoolean("jingle_music_enabled", false)) musicPlayer.start()
     }
 
     override fun onPause() {
         newYearHandler.removeCallbacks(newYearCheck)
+        musicPlayer.stop()
         super.onPause()
     }
 
@@ -99,7 +103,7 @@ class MainActivity : Activity() {
             now.get(Calendar.MINUTE) == 0 && now.get(Calendar.SECOND) <= 20
         val year = now.get(Calendar.YEAR)
         val key = "new_year_celebration_$year"
-        if (isNewYear && !wallpaperPrefs.getBoolean(key, false)) {
+        if (isNewYear && wallpaperPrefs.getBoolean("new_year_enabled", true) && !wallpaperPrefs.getBoolean(key, false)) {
             wallpaperPrefs.edit().putBoolean(key, true).apply()
             startNewYearCelebration()
         }
@@ -214,6 +218,8 @@ class MainActivity : Activity() {
         header.addView(brand)
         val date = SimpleDateFormat("d MMMM", Locale("ru")).format(Date())
         header.addView(label("❄  $date  ❄", 13f, white, true))
+        iceClock = IceClockView(this, wallpaperPrefs.getInt("ice_clock_skin", 0))
+        header.addView(iceClock, LinearLayout.LayoutParams(dp(66), dp(66)).apply { leftMargin = dp(8) })
         shell.addView(header)
 
         val garland = TextView(this).apply {
@@ -348,8 +354,62 @@ class MainActivity : Activity() {
             if (group.size < columns) row.addView(View(this), LinearLayout.LayoutParams(0, dp(116), (columns - group.size).toFloat()))
             content.addView(row)
         }
+        heading("МОИ КАРТОЧКИ")
+        content.addView(label("Добавляй приложения на главный экран или убирай карточки без удаления самих приложений.", 11f, ivory))
+        actionCard("＋  Добавить карточку") { manageHomeCards(true) }
+        actionCard("−  Удалить карточку") { manageHomeCards(false) }
+        val pinned = pinnedApps()
+        if (pinned.isNotEmpty()) appGrid(pinned)
         heading("БЫСТРЫЙ ДОСТУП")
         appGrid(installedApps().take(if (wide) 12 else 8))
+    }
+
+    private fun pinnedApps(): List<android.content.pm.ResolveInfo> {
+        val pins = wallpaperPrefs.getStringSet("home_card_packages", emptySet()) ?: emptySet()
+        return installedApps().filter { it.activityInfo.packageName in pins }
+    }
+
+    private fun manageHomeCards(add: Boolean) {
+        val apps = installedApps()
+        if (apps.isEmpty()) return
+        val current = (wallpaperPrefs.getStringSet("home_card_packages", emptySet()) ?: emptySet()).toMutableSet()
+        val candidates = if (add) apps.filter { it.activityInfo.packageName !in current } else apps.filter { it.activityInfo.packageName in current }
+        if (candidates.isEmpty()) {
+            android.widget.Toast.makeText(this, if (add) "Все доступные приложения уже добавлены" else "На главном экране пока нет добавленных карточек", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        val labels = candidates.map { it.loadLabel(packageManager).toString() }.toTypedArray()
+        AlertDialog.Builder(this).setTitle(if (add) "Добавить карточку" else "Удалить карточку с главного экрана")
+            .setItems(labels) { _, which ->
+                val pkg = candidates[which].activityInfo.packageName
+                if (add) current.add(pkg) else current.remove(pkg)
+                wallpaperPrefs.edit().putStringSet("home_card_packages", current).apply()
+                render()
+                android.widget.Toast.makeText(this, if (add) "Карточка добавлена" else "Карточка убрана. Приложение осталось установленным.", android.widget.Toast.LENGTH_SHORT).show()
+            }.setNegativeButton("Отмена", null).show()
+    }
+
+    private fun chooseClockSkin() {
+        val names = arrayOf("Красный лёд — красный циферблат и голубые стрелки", "Снежный кристалл — белый лёд и серебро", "Ледяной механизм — красное стекло и синие шестерёнки", "Волшебные часы — морозное сияние")
+        AlertDialog.Builder(this).setTitle("Дизайн часов").setSingleChoiceItems(names, wallpaperPrefs.getInt("ice_clock_skin", 0)) { dialog, which ->
+            wallpaperPrefs.edit().putInt("ice_clock_skin", which).apply()
+            iceClock?.skin = which
+            iceClock?.invalidate()
+            dialog.dismiss()
+        }.setNegativeButton("Отмена", null).show()
+    }
+
+    private fun toggleMusic() {
+        val enabled = !wallpaperPrefs.getBoolean("jingle_music_enabled", false)
+        wallpaperPrefs.edit().putBoolean("jingle_music_enabled", enabled).apply()
+        if (enabled && !isFinishing) musicPlayer.start() else musicPlayer.stop()
+        render()
+    }
+
+    private fun toggleNewYear() {
+        val enabled = !wallpaperPrefs.getBoolean("new_year_enabled", true)
+        wallpaperPrefs.edit().putBoolean("new_year_enabled", enabled).apply()
+        render()
     }
 
     private fun appSection(section: String) {
@@ -456,6 +516,9 @@ class MainActivity : Activity() {
         info.background = shape(0xDDF8F3EA.toInt(), 22, 0xAAFFFFFF.toInt())
         info.setPadding(dp(18), dp(18), dp(18), dp(18))
         content.addView(info)
+        actionCard("🕰   Выбрать дизайн ледяных часов") { chooseClockSkin() }
+        actionCard("♫   Фоновая музыка: " + if (wallpaperPrefs.getBoolean("jingle_music_enabled", false)) "ВКЛ" else "ВЫКЛ") { toggleMusic() }
+        actionCard("🎆   Новогодний сюрприз: " + if (wallpaperPrefs.getBoolean("new_year_enabled", true)) "ВКЛ" else "ВЫКЛ") { toggleNewYear() }
         actionCard("🖼   Выбрать свой фон") { chooseWallpaper() }
         actionCard("↺   Вернуть праздничный фон") { resetWallpaper() }
         actionCard("↻   Обновить список приложений") { render() }
