@@ -43,7 +43,7 @@ class MainActivity : Activity() {
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
     private fun panel(color: Int, radius: Float = 22f): GradientDrawable =
-        GradientDrawable().apply { setColor(color); cornerRadius = dp(radius).toFloat(); setStroke(dp(1), 0x55FFFFFF) }
+        GradientDrawable().apply { setColor(color); cornerRadius = dp(radius.toInt()).toFloat(); setStroke(dp(1), 0x55FFFFFF) }
 
     private fun text(value: String, size: Float, color: Int = cream, bold: Boolean = false): TextView =
         TextView(this).apply {
@@ -81,7 +81,7 @@ class MainActivity : Activity() {
         nav.removeAllViews()
         sections.forEach { section ->
             val b = text((if (selected == section) "❄  " else "") + section, 14f, if (selected == section) gold else cream, selected == section)
-            b.background = panel(if (selected == section) 0x553D8B69 else 0x332FFFFFF, 18f)
+            b.background = panel((if (selected == section) 0x553D8B69L else 0x332FFFFFFL).toInt(), 18f)
             b.setPadding(dp(14), dp(10), dp(14), dp(10))
             b.isFocusable = true
             b.setOnClickListener { selected = section; render() }
@@ -113,7 +113,7 @@ class MainActivity : Activity() {
             when (section) {
                 "Фильмы" -> listOf("youtube","netflix","кино","ivi","окко","кинопоиск","премьер","видео","медиа").any { name.contains(it) }
                 "ТВ" -> listOf("tv","телев","iptv","эфир","канал").any { name.contains(it) }
-                "Игры" -> try { packageManager.getApplicationInfo(app.packageName, 0).category == android.content.pm.ApplicationInfo.CATEGORY_GAME } catch (_: Exception) { false }
+                "Игры" -> try { packageManager.getApplicationInfo(app.activityInfo.packageName, 0).category == android.content.pm.ApplicationInfo.CATEGORY_GAME } catch (_: Exception) { false }
                 else -> true
             }
         }
