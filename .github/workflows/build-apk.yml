@@ -1,7 +1,7 @@
 name: Build Christmas Dream Launcher APKs
 on:
   push:
-    branches: [ main ]
+    branches: [ main, feature/home-cards-ice-clock-jingle ]
   workflow_dispatch:
 permissions:
   contents: read
