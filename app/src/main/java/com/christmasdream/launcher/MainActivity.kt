@@ -5,10 +5,7 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Path
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -26,7 +23,6 @@ import android.widget.TextView
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.random.Random
 
 class MainActivity : Activity() {
     private val red = Color.rgb(174, 22, 43)
@@ -71,10 +67,17 @@ class MainActivity : Activity() {
 
     private fun buildUi() {
         val frame = FrameLayout(this)
+        val wallpaper = ImageView(this).apply {
+            setImageResource(if (resources.configuration.screenWidthDp >= 600) R.drawable.christmas_background_tv else R.drawable.christmas_background_phone)
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            contentDescription = "Праздничный зимний интерьер"
+        }
+        frame.addView(wallpaper, FrameLayout.LayoutParams(-1, -1))
+        frame.addView(View(this).apply { setBackgroundColor(0x77070D18) }, FrameLayout.LayoutParams(-1, -1))
         val shell = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(10), dp(16), dp(12))
-            background = gradient(intArrayOf(Color.rgb(113, 8, 31), Color.rgb(177, 24, 47), Color.rgb(91, 7, 27)), 0)
+            setBackgroundColor(Color.TRANSPARENT)
         }
         frame.addView(shell, FrameLayout.LayoutParams(-1, -1))
 
@@ -149,11 +152,10 @@ class MainActivity : Activity() {
     private fun home() {
         val wide = resources.configuration.screenWidthDp >= 600
         val hero = FrameLayout(this).apply {
-            background = shape(Color.rgb(45, 12, 24), 26, 0x88E4BD79.toInt())
+            background = shape(0xA51B1520.toInt(), 26, 0x88E4BD79.toInt())
             clipToOutline = true
             elevation = dp(8).toFloat()
         }
-        hero.addView(ChristmasSceneView(), FrameLayout.LayoutParams(-1, -1))
         val copy = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_VERTICAL
@@ -353,126 +355,6 @@ class MainActivity : Activity() {
             return true
         }
         return super.onKeyDown(keyCode, event)
-    }
-
-    private inner class ChristmasSceneView : View(this@MainActivity) {
-        private val p = Paint(Paint.ANTI_ALIAS_FLAG)
-        private fun fill(c: Int) { p.color = c; p.style = Paint.Style.FILL; p.shader = null }
-        private fun box(c: Canvas, l: Float, t: Float, r: Float, b: Float, radius: Float, color: Int) {
-            fill(color); c.drawRoundRect(l, t, r, b, radius, radius, p)
-        }
-        private fun dot(c: Canvas, x: Float, y: Float, radius: Float, color: Int) {
-            fill(color); c.drawCircle(x, y, radius, p)
-        }
-        private fun branch(c: Canvas, cx: Float, top: Float, width: Float, height: Float, tier: Int, color: Int) {
-            val y0 = top + height * tier / 3f
-            val y1 = top + height * (tier + 1) / 3f
-            val half = width * (tier + 1) / 6f
-            val path = Path().apply {
-                moveTo(cx, y0 - height * 0.07f)
-                cubicTo(cx - half * .5f, y0 + height * .02f, cx - half * .85f, y1 - height * .05f, cx - half, y1)
-                quadTo(cx, y1 + height * .08f, cx + half, y1)
-                cubicTo(cx + half * .85f, y1 - height * .05f, cx + half * .5f, y0 + height * .02f, cx, y0 - height * .07f)
-                close()
-            }
-            fill(color); c.drawPath(path, p)
-            p.style = Paint.Style.STROKE; p.strokeWidth = 1.4f; p.color = 0x5577D69A
-            c.drawPath(path, p); p.style = Paint.Style.FILL
-        }
-
-        override fun onDraw(canvas: Canvas) {
-            super.onDraw(canvas)
-            val w = width.toFloat(); val h = height.toFloat()
-            if (w < 1f || h < 1f) return
-            p.shader = android.graphics.LinearGradient(0f, 0f, w, h,
-                intArrayOf(Color.rgb(25, 10, 22), Color.rgb(88, 22, 39), Color.rgb(30, 8, 19)),
-                null, android.graphics.Shader.TileMode.CLAMP)
-            canvas.drawRect(0f, 0f, w, h, p); p.shader = null
-
-            // Snowy window behind the tree
-            val left = w * .55f
-            box(canvas, left, h * .09f, w * .96f, h * .76f, 8f, 0xFF33202A.toInt())
-            box(canvas, left + 5f, h * .09f + 5f, w * .96f - 5f, h * .76f - 5f, 5f, 0xFF263747.toInt())
-            fill(0xFF78838D.toInt())
-            canvas.drawRect(left + (w * .96f - left) * .49f, h * .11f, left + (w * .96f - left) * .51f, h * .74f, p)
-            canvas.drawRect(left + 5f, h * .42f, w * .96f - 5f, h * .44f, p)
-            for (i in 0..22) {
-                val x = left + Random(i * 17 + 5).nextFloat() * (w * .38f)
-                val y = h * .13f + Random(i * 29 + 2).nextFloat() * (h * .58f)
-                dot(canvas, x, y, 1f + (i % 3), 0xCCFFFFFF.toInt())
-            }
-
-            // Fireplace and amber light
-            box(canvas, w * .79f, h * .65f, w * .98f, h * .93f, 7f, 0xFF421C27.toInt())
-            box(canvas, w * .81f, h * .69f, w * .96f, h * .90f, 4f, 0xFF160D14.toInt())
-            dot(canvas, w * .885f, h * .83f, h * .075f, 0x88F07836.toInt())
-            dot(canvas, w * .885f, h * .83f, h * .045f, 0xFFFFC35C.toInt())
-
-            // A full layered evergreen tree, not a glyph
-            val cx = w * .77f
-            val top = h * .075f
-            val tw = minOf(w * .50f, h * .90f)
-            val th = h * .80f
-            box(canvas, cx - tw * .055f, top + th * .76f, cx + tw * .055f, top + th * .99f, 4f, 0xFF70402B.toInt())
-            branch(canvas, cx, top, tw, th, 0, 0xFF0B4934.toInt())
-            branch(canvas, cx, top, tw, th, 1, 0xFF0D5A3D.toInt())
-            branch(canvas, cx, top, tw, th, 2, 0xFF0A4933.toInt())
-
-            // Gold star
-            dot(canvas, cx, top, 14f, 0x55FFD77A)
-            val star = Path()
-            for (i in 0 until 10) {
-                val a = Math.PI * i / 5.0 - Math.PI / 2.0
-                val r = if (i % 2 == 0) 12f else 5f
-                val x = cx + kotlin.math.cos(a).toFloat() * r
-                val y = top + kotlin.math.sin(a).toFloat() * r
-                if (i == 0) star.moveTo(x, y) else star.lineTo(x, y)
-            }
-            star.close(); fill(0xFFFFD778.toInt()); canvas.drawPath(star, p)
-
-            // Draped garlands and warm bulbs
-            for (row in 0..3) {
-                val yy = top + th * (.22f + row * .17f)
-                val span = tw * (.13f + row * .105f)
-                val curve = Path().apply { moveTo(cx - span, yy); quadTo(cx, yy + th * .12f, cx + span, yy) }
-                p.color = 0xFFD8B16C.toInt(); p.style = Paint.Style.STROKE; p.strokeWidth = 2.2f
-                canvas.drawPath(curve, p); p.style = Paint.Style.FILL
-                for (j in 0..7) {
-                    val t = j / 7f
-                    val x = cx - span + 2f * span * t
-                    val y = yy + th * .12f * (1f - kotlin.math.abs(2f * t - 1f))
-                    dot(canvas, x, y, 5.5f, 0x33FFD477)
-                    dot(canvas, x, y, 2.8f, if ((j + row) % 2 == 0) 0xFFFFD477.toInt() else 0xFFFFF0C4.toInt())
-                }
-            }
-
-            // Glass baubles with tiny highlights
-            val ornaments = listOf(
-                Pair(-.20f, .32f), Pair(.16f, .38f), Pair(-.29f, .55f), Pair(.28f, .58f),
-                Pair(-.12f, .72f), Pair(.13f, .80f), Pair(0f, .48f), Pair(.35f, .73f)
-            )
-            ornaments.forEachIndexed { i, o ->
-                val x = cx + tw * o.first; val y = top + th * o.second
-                dot(canvas, x + 1.5f, y + 2f, 7f, 0x66000000)
-                dot(canvas, x, y, 6.2f, when (i % 3) {
-                    0 -> 0xFFC63B43.toInt()
-                    1 -> 0xFFFFD27B.toInt()
-                    else -> 0xFFECE2CF.toInt()
-                })
-                dot(canvas, x - 2f, y - 2f, 1.8f, 0xCCFFFFFF.toInt())
-            }
-
-            // Wrapped presents at the foot of the tree
-            box(canvas, cx - tw * .46f, h * .82f, cx - tw * .13f, h * .96f, 4f, 0xFF9E243A.toInt())
-            box(canvas, cx - tw * .31f, h * .82f, cx - tw * .28f, h * .96f, 2f, 0xFFFFD47E.toInt())
-            box(canvas, cx + tw * .13f, h * .85f, cx + tw * .45f, h * .97f, 4f, 0xFFE7C18A.toInt())
-            box(canvas, cx + tw * .27f, h * .85f, cx + tw * .30f, h * .97f, 2f, 0xFF9E243A.toInt())
-            fill(0x44F0B46D); canvas.drawOval(w * .38f, h * .91f, w * .99f, h * 1.04f, p)
-
-            p.style = Paint.Style.STROKE; p.strokeWidth = 1.2f; p.color = 0x99E7C27E.toInt()
-            canvas.drawRoundRect(1f, 1f, w - 1f, h - 1f, 25f, 25f, p)
-            p.style = Paint.Style.FILL
-        }
     }
 
     private data class SnowFlake(var x: Float, var y: Float, val radius: Float, val speed: Float, val drift: Float)
