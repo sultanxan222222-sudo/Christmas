@@ -21,7 +21,7 @@ class IceClockView(context: Context, var skin: Int = 0) : View(context) {
         super.onDraw(c)
         val cx=width/2f; val cy=height/2f; val r=minOf(cx,cy)*.91f
         if(r<=0) return
-        val (case,dial,hand,accent)=when(skin){
+        val (case,dial,handColor,accent)=when(skin){
             1-> intArrayOf(0xDDEFFFFF.toInt(),0xCCF7FDFF.toInt(),0xFF287BB8.toInt(),0xFF9BCDEB.toInt())
             2-> intArrayOf(0xDDE8F8FF.toInt(),0xCC7E182C.toInt(),0xFF8EDBFF.toInt(),0xFF54D7F2.toInt())
             3-> intArrayOf(0xE6F8FFFF.toInt(),0xCCF4F7FA.toInt(),0xFF2475B8.toInt(),0xFFFF4963.toInt())
@@ -37,7 +37,7 @@ class IceClockView(context: Context, var skin: Int = 0) : View(context) {
             c.drawLine(cx+cos(a).toFloat()*inner,cy+sin(a).toFloat()*inner,cx+cos(a).toFloat()*outer,cy+sin(a).toFloat()*outer,p)
         }
         p.style=Paint.Style.FILL; p.textAlign=Paint.Align.CENTER; p.typeface=android.graphics.Typeface.create("sans-serif",android.graphics.Typeface.BOLD)
-        p.textSize=r*.19f; p.color=if(skin==2) Color.WHITE else hand
+        p.textSize=r*.19f; p.color=if(skin==2) Color.WHITE else handColor
         for(n in 1..12){ val a=Math.PI*n/6.0; c.drawText(n.toString(),cx+sin(a).toFloat()*r*.61f,cy-cos(a).toFloat()*r*.61f+r*.065f,p) }
         // Small visible gear wheels rotate continuously, while hands follow wall-clock time.
         val now=java.util.Calendar.getInstance()
@@ -52,8 +52,8 @@ class IceClockView(context: Context, var skin: Int = 0) : View(context) {
             p.color=col;p.strokeWidth=stroke;p.strokeCap=Paint.Cap.ROUND
             c.drawLine(cx,cy,cx+sin(angle).toFloat()*length,cy-cos(angle).toFloat()*length,p)
         }
-        hand(hour*Math.PI/6,r*.43f,r*.075f,hand)
-        hand(min*Math.PI/30,r*.65f,r*.045f,hand)
+        hand(hour*Math.PI/6,r*.43f,r*.075f,handColor)
+        hand(min*Math.PI/30,r*.65f,r*.045f,handColor)
         hand(sec*Math.PI/30,r*.73f,r*.014f,accent)
         p.style=Paint.Style.FILL;p.color=0xFFFFF8E8.toInt();c.drawCircle(cx,cy,r*.055f,p)
     }
