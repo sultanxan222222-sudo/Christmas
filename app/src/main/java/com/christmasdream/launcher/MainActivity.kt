@@ -123,22 +123,21 @@ class MainActivity : Activity() {
             content.addView(empty)
             return
         }
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        var count = 0
-        apps.take(40).forEach { info ->
-            val card = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; background = panel(0x883B3028.toInt(), 20f); setPadding(dp(8), dp(12), dp(8), dp(12)); isFocusable = true; isClickable = true }
-            val label = info.loadLabel(packageManager).toString()
-            val icon = try { info.loadIcon(packageManager) } catch (_: Exception) { null }
-            val image = android.widget.ImageView(this).apply { if (icon != null) setImageDrawable(icon); scaleType = android.widget.ImageView.ScaleType.FIT_CENTER }
-            card.addView(image, LinearLayout.LayoutParams(dp(48), dp(48)))
-            card.addView(text(label, 12f, cream, true).apply { gravity = Gravity.CENTER; maxLines = 2; textAlignment = View.TEXT_ALIGNMENT_CENTER })
-            card.setOnClickListener { launch(info.packageName) }
-            card.setOnFocusChangeListener { v, focus -> v.background = panel(if (focus) 0xFF8B6335.toInt() else 0x883B3028.toInt(), 20f); v.scaleX = if (focus) 1.05f else 1f; v.scaleY = if (focus) 1.05f else 1f }
-            row.addView(card, LinearLayout.LayoutParams(dp(if (compact) 112 else 132), dp(112)).apply { rightMargin = dp(9); bottomMargin = dp(9) })
-            count++
-            if (count % 5 == 0) { content.addView(row); }
+        apps.take(40).chunked(5).forEach { group ->
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            group.forEach { info ->
+                val card = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; background = panel(0x883B3028.toInt(), 20f); setPadding(dp(8), dp(12), dp(8), dp(12)); isFocusable = true; isClickable = true }
+                val label = info.loadLabel(packageManager).toString()
+                val icon = try { info.loadIcon(packageManager) } catch (_: Exception) { null }
+                val image = android.widget.ImageView(this).apply { if (icon != null) setImageDrawable(icon); scaleType = android.widget.ImageView.ScaleType.FIT_CENTER }
+                card.addView(image, LinearLayout.LayoutParams(dp(48), dp(48)))
+                card.addView(text(label, 12f, cream, true).apply { gravity = Gravity.CENTER; maxLines = 2; textAlignment = View.TEXT_ALIGNMENT_CENTER })
+                card.setOnClickListener { launch(info.activityInfo.packageName) }
+                card.setOnFocusChangeListener { v, focus -> v.background = panel(if (focus) 0xFF8B6335.toInt() else 0x883B3028.toInt(), 20f); v.scaleX = if (focus) 1.05f else 1f; v.scaleY = if (focus) 1.05f else 1f }
+                row.addView(card, LinearLayout.LayoutParams(0, dp(112), 1f).apply { rightMargin = dp(7); bottomMargin = dp(9) })
+            }
+            content.addView(row)
         }
-        if (row.childCount > 0) content.addView(row)
     }
 
     private fun installedApps(): List<android.content.pm.ResolveInfo> {
