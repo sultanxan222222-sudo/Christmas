@@ -85,11 +85,13 @@ class MainActivity : Activity() {
         wallpaperView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             contentDescription = "Фоновое изображение лаунчера"
+            val defaultResource = if (resources.configuration.screenWidthDp >= 600)
+                R.drawable.christmas_background_tv else R.drawable.christmas_background_phone
             val saved = wallpaperPrefs.getString("custom_wallpaper_uri", null)
             if (saved != null) {
                 try { setImageURI(android.net.Uri.parse(saved)) }
-                catch (_: Exception) { setDefaultWallpaper() }
-            } else setDefaultWallpaper()
+                catch (_: Exception) { setImageResource(defaultResource) }
+            } else setImageResource(defaultResource)
         }
         frame.addView(wallpaperView, FrameLayout.LayoutParams(-1, -1))
         frame.addView(View(this).apply { setBackgroundColor(0x77070D18) }, FrameLayout.LayoutParams(-1, -1))
