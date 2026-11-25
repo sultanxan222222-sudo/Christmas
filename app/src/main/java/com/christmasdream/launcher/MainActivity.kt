@@ -11,6 +11,12 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.speech.tts.TextToSpeech
+import android.media.ToneGenerator
+import android.media.AudioManager
+import java.util.Calendar
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
@@ -43,12 +49,89 @@ class MainActivity : Activity() {
     private lateinit var wallpaperView: ImageView
     private val wallpaperPrefs by lazy { getSharedPreferences("christmas_dream_settings", MODE_PRIVATE) }
     private val wallpaperRequestCode = 4107
+    private lateinit var rootFrame: FrameLayout
+    private val newYearHandler = Handler(Looper.getMainLooper())
+    private var newYearOverlay: NewYearCelebrationView? = null
+    private var santaTts: TextToSpeech? = null
+    private var ttsReady = false
+    private var bellPlayer: ToneGenerator? = null
+    private val newYearCheck = object : Runnable {
+        override fun run() {
+            checkNewYearMoment()
+            if (!isFinishing) newYearHandler.postDelayed(this, 500L)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = deepRed
         window.navigationBarColor = deepRed
         buildUi()
+        santaTts = TextToSpeech(this) { status ->
+            ttsReady = status == TextToSpeech.SUCCESS
+            if (ttsReady) santaTts?.language = Locale("ru", "RU")
+        }
+        bellPlayer = try { ToneGenerator(AudioManager.STREAM_MUSIC, 55) } catch (_: Exception) { null }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        newYearHandler.removeCallbacks(newYearCheck)
+        newYearHandler.post(newYearCheck)
+    }
+
+    override fun onPause() {
+        newYearHandler.removeCallbacks(newYearCheck)
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        newYearHandler.removeCallbacks(newYearCheck)
+        bellPlayer?.release()
+        bellPlayer = null
+        santaTts?.stop()
+        santaTts?.shutdown()
+        santaTts = null
+        super.onDestroy()
+    }
+
+    private fun checkNewYearMoment() {
+        val now = Calendar.getInstance()
+        val isNewYear = now.get(Calendar.MONTH) == Calendar.JANUARY &&
+            now.get(Calendar.DAY_OF_MONTH) == 1 && now.get(Calendar.HOUR_OF_DAY) == 0 &&
+            now.get(Calendar.MINUTE) == 0 && now.get(Calendar.SECOND) <= 20
+        val year = now.get(Calendar.YEAR)
+        val key = "new_year_celebration_$year"
+        if (isNewYear && !wallpaperPrefs.getBoolean(key, false)) {
+            wallpaperPrefs.edit().putBoolean(key, true).apply()
+            startNewYearCelebration()
+        }
+    }
+
+    private fun startNewYearCelebration() {
+        if (newYearOverlay != null) return
+        newYearOverlay = NewYearCelebrationView(this)
+        rootFrame.addView(newYearOverlay, FrameLayout.LayoutParams(-1, -1))
+        newYearOverlay?.bringToFront()
+        // Three distinct bell chimes, followed by a cheerful spoken greeting.
+        val tone = ToneGenerator.TONE_PROP_BEEP2
+        newYearHandler.postDelayed({ bellPlayer?.startTone(tone, 420) }, 0L)
+        newYearHandler.postDelayed({ bellPlayer?.startTone(tone, 420) }, 850L)
+        newYearHandler.postDelayed({ bellPlayer?.startTone(tone, 650) }, 1700L)
+        newYearHandler.postDelayed({
+            if (ttsReady) {
+                val params = android.os.Bundle().apply {
+                    putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 0.82f)
+                }
+                santaTts?.setPitch(0.78f)
+                santaTts?.setSpeechRate(0.88f)
+                santaTts?.speak("Хо-хо-хо! С Новым годом!", TextToSpeech.QUEUE_FLUSH, params, "christmas_new_year_greeting")
+            }
+        }, 2600L)
+        newYearHandler.postDelayed({
+            newYearOverlay?.let { rootFrame.removeView(it) }
+            newYearOverlay = null
+        }, 20_000L)
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
@@ -82,6 +165,7 @@ class MainActivity : Activity() {
 
     private fun buildUi() {
         val frame = FrameLayout(this)
+        rootFrame = frame
         wallpaperView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             contentDescription = "Фоновое изображение лаунчера"
