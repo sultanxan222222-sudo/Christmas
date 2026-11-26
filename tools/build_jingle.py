@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create a ~3-minute, gentle orchestral Jingle Bells arrangement (public-domain melody)."""
+"""Create a ~3-minute, gentle orchestral Jingle Bells arrangement (public-domain melody). Rendered to MP3 by the CI pipeline."""
 import os
 import pretty_midi
 
