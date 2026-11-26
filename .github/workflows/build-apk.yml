@@ -32,36 +32,15 @@ jobs:
           mkdir -p app/src/main/res/raw
           curl -fL --retry 3 "https://commons.wikimedia.org/wiki/Special:Redirect/file/Adhan.ogg" -o app/src/main/res/raw/adhan.ogg
           file app/src/main/res/raw/adhan.ogg
-      - name: Download Ramadan nasheed audio (Pixabay Content License)
+      - name: Download and prepare vocal nasheed (CC BY 3.0)
         run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
           mkdir -p app/src/main/res/raw
-          python - <<'PY'
-          import urllib.request, html
-          page = "https://pixabay.com/music/world-ramadhan-islamic-nasheed-307885/"
-          request = urllib.request.Request(page, headers={"User-Agent": "Mozilla/5.0"})
-          source = urllib.request.urlopen(request, timeout=30).read().decode("utf-8", "ignore")
-          source = source.replace("\\/", "/").replace("&amp;", "&")
-          marker = "https://cdn.pixabay.com/audio/"
-          start = source.find(marker)
-          if start < 0:
-              marker = "//cdn.pixabay.com/audio/"
-              start = source.find(marker)
-          if start < 0:
-              raise SystemExit("Could not locate the official Pixabay MP3 asset in the track page")
-          end = source.find(".mp3", start)
-          if end < 0:
-              raise SystemExit("Pixabay audio URL was incomplete")
-          audio_url = html.unescape(source[start:end + 4])
-          if audio_url.startswith("//"):
-              audio_url = "https:" + audio_url
-          req = urllib.request.Request(audio_url, headers={"User-Agent": "Mozilla/5.0", "Referer": page})
-          data = urllib.request.urlopen(req, timeout=60).read()
-          is_mp3 = data[:3] == b"ID3" or (len(data) > 1 and data[0] == 0xFF and (data[1] & 0xE0) == 0xE0)
-          if len(data) < 10000 or not is_mp3:
-              raise SystemExit("Downloaded nasheed audio did not pass MP3 validation")
-          open("app/src/main/res/raw/nasheed.mp3", "wb").write(data)
-          print("Downloaded Ramadan nasheed:", len(data), "bytes")
-          PY
+          curl -fL --retry 3 "https://commons.wikimedia.org/wiki/Special:Redirect/file/Jawad_Syed_-_Alhamdulilah_(Vocal_Only_Nasheed).flac" -o /tmp/ramadan_nasheed.flac
+          ffmpeg -y -i /tmp/ramadan_nasheed.flac -af "volume=0.55,afade=t=in:st=0:d=2,afade=t=out:st=185:d=5" -codec:a libmp3lame -b:a 96k -ar 44100 -ac 2 app/src/main/res/raw/nasheed.mp3
+          test -s app/src/main/res/raw/nasheed.mp3
+          file app/src/main/res/raw/nasheed.mp3
       - name: Build phone and TV variants
         run: gradle --no-daemon assemblePhoneDebug assembleTvDebug
       - name: Upload phone APK
