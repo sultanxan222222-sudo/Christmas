@@ -24,6 +24,8 @@ class MainActivity : Activity() {
     private lateinit var prayerText: TextView
     private lateinit var statusText: TextView
     private var prayerTimes = linkedMapOf<String, String>()
+    private var nasheedPlayer: MediaPlayer? = null
+    private val currentSection get() = prefs.getString("launcher_section", "Главная") ?: "Главная"
     private val prayerNames = linkedMapOf("fajr" to "Фаджр", "dhuhr" to "Зухр", "asr" to "Аср", "maghrib" to "Магриб", "isha" to "Иша")
     private val handler = Handler(Looper.getMainLooper())
     private val timeFormat = SimpleDateFormat("HH:mm", Locale("ru"))
@@ -46,13 +48,49 @@ class MainActivity : Activity() {
         window.navigationBarColor = Color.rgb(3, 24, 19)
         buildScreen()
         handler.post(updateClock)
+        if (prefs.getBoolean("nasheed_enabled", true)) startNasheed()
         loadPrayerTimes()
         PrayerAlarm.scheduleNext(this)
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (prefs.getBoolean("nasheed_enabled", true)) startNasheed()
+    }
+
+    override fun onPause() {
+        nasheedPlayer?.pause()
+        super.onPause()
+    }
+
     override fun onDestroy() {
         handler.removeCallbacks(updateClock)
+        nasheedPlayer?.release()
+        nasheedPlayer = null
         super.onDestroy()
+    }
+
+    private fun startNasheed() {
+        if (nasheedPlayer?.isPlaying == true) return
+        try {
+            if (nasheedPlayer == null) {
+                val id = resources.getIdentifier("nasheed", "raw", packageName)
+                if (id == 0) return
+                nasheedPlayer = MediaPlayer.create(this, id)?.apply {
+                    isLooping = true
+                    setVolume(0.32f, 0.32f)
+                }
+            }
+            nasheedPlayer?.start()
+        } catch (_: Exception) { }
+    }
+
+    private fun toggleNasheed() {
+        val enabled = !prefs.getBoolean("nasheed_enabled", true)
+        prefs.edit().putBoolean("nasheed_enabled", enabled).apply()
+        if (enabled) startNasheed() else nasheedPlayer?.pause()
+        Toast.makeText(this, if (enabled) "Нашид включён" else "Нашид выключен", Toast.LENGTH_SHORT).show()
+        buildScreen()
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
@@ -89,7 +127,33 @@ class MainActivity : Activity() {
         header.addView(title)
         val date = SimpleDateFormat("d MMMM yyyy", Locale("ru")).format(Date())
         header.addView(text("Грозный  •  $date", 12f, 0xFFE6F7ED.toInt(), true))
+        val settingsButton = text("⚙", 25f, 0xFFFFD88A.toInt(), true).apply {
+            gravity = Gravity.CENTER
+            background = cardBg()
+            setPadding(dp(12), dp(7), dp(12), dp(7))
+            isFocusable = true
+            setOnClickListener { prefs.edit().putString("launcher_section", "Настройки").apply(); buildScreen() }
+            setOnFocusChangeListener { v, focused -> v.background = cardBg(focused) }
+        }
+        header.addView(settingsButton, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(8) })
         page.addView(header)
+        val nav = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val navScroll = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; clipToPadding = false; addView(nav) }
+        listOf("Главная", "Фильмы", "Игры", "Приложения").forEach { section ->
+            val active = currentSection == section
+            val chip = text(when(section) { "Фильмы" -> "🎬  Фильмы"; "Игры" -> "🎮  Игры"; "Приложения" -> "▦  Приложения"; else -> "⌂  Главная" }, 12f,
+                if (active) 0xFFFFD88A.toInt() else Color.WHITE, true).apply {
+                gravity = Gravity.CENTER
+                background = cardBg(active)
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+                isFocusable = true
+                setOnClickListener { prefs.edit().putString("launcher_section", section).apply(); buildScreen() }
+                setOnFocusChangeListener { v, focused -> v.background = cardBg(focused || active) }
+            }
+            nav.addView(chip, LinearLayout.LayoutParams(-2, -2).apply { rightMargin = dp(6) })
+        }
+        page.addView(navScroll, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8); bottomMargin = dp(8) })
+        if (currentSection == "Главная") {
         page.addView(text("الله", 68f, 0xFF72FFAA.toInt(), true).apply {
             gravity = Gravity.CENTER
             setShadowLayer(dp(20).toFloat(), 0f, 0f, 0xFF00FF78.toInt())
@@ -155,9 +219,86 @@ class MainActivity : Activity() {
         page.addView(buildInstalledAppsGrid(), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
 
         page.addView(text("Нашид Рамадана • мягкая фоновая музыка", 11f, 0xFFE6D9B3.toInt()).apply { setPadding(dp(4), dp(12), 0, 0) })
+        val musicToggle = text("♫  Фоновый нашид: " + if (prefs.getBoolean("nasheed_enabled", true)) "ВКЛ" else "ВЫКЛ", 14f, 0xFFFFD88A.toInt(), true).apply {
+            background = cardBg(); setPadding(dp(14), dp(12), dp(14), dp(12)); isFocusable = true
+            setOnClickListener { toggleNasheed() }
+            setOnFocusChangeListener { v, focused -> v.background = cardBg(focused) }
+        }
+        page.addView(musicToggle, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+        } else if (currentSection == "Настройки") {
+            page.addView(text("НАСТРОЙКИ ЛАУНЧЕРА", 17f, 0xFFFFD88A.toInt(), true).apply { setPadding(0, dp(18), 0, dp(8)) })
+            val musicSetting = text("♫  Фоновый нашид: " + if (prefs.getBoolean("nasheed_enabled", true)) "ВКЛ" else "ВЫКЛ", 15f, Color.WHITE, true).apply {
+                background = cardBg(); setPadding(dp(16), dp(14), dp(16), dp(14)); isFocusable = true; setOnClickListener { toggleNasheed() }
+                setOnFocusChangeListener { v, focused -> v.background = cardBg(focused) }
+            }
+            page.addView(musicSetting)
+            val adhanSetting = text("🕌  Настройки азана", 15f, Color.WHITE, true).apply {
+                background = cardBg(); setPadding(dp(16), dp(14), dp(16), dp(14)); isFocusable = true; setOnClickListener { soundSettings() }
+                setOnFocusChangeListener { v, focused -> v.background = cardBg(focused) }
+            }
+            page.addView(adhanSetting, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+            val catSetting = text("🐈  Выбрать котёнка", 15f, Color.WHITE, true).apply {
+                background = cardBg(); setPadding(dp(16), dp(14), dp(16), dp(14)); isFocusable = true; setOnClickListener { chooseCat() }
+                setOnFocusChangeListener { v, focused -> v.background = cardBg(focused) }
+            }
+            page.addView(catSetting, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+            val clockSetting = text("◷  Выбрать стиль часов", 15f, Color.WHITE, true).apply {
+                background = cardBg(); setPadding(dp(16), dp(14), dp(16), dp(14)); isFocusable = true
+                setOnClickListener { prefs.edit().putInt("clock", (prefs.getInt("clock", 2) + 1) % 4).apply(); buildScreen() }
+                setOnFocusChangeListener { v, focused -> v.background = cardBg(focused) }
+            }
+            page.addView(clockSetting, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+        } else {
+            val apps = getAppsForSection(currentSection)
+            page.addView(text(when(currentSection) { "Фильмы" -> "ФИЛЬМЫ И ВИДЕО"; "Игры" -> "ВАШИ ИГРЫ"; else -> "УСТАНОВЛЕННЫЕ ПРИЛОЖЕНИЯ" }, 17f, 0xFFFFD88A.toInt(), true).apply { setPadding(0, dp(18), 0, dp(8)) })
+            page.addView(buildAppsGrid(apps), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+        }
         setContentView(root)
     }
 
+
+
+    private fun getAppsForSection(section: String): List<android.content.pm.ResolveInfo> {
+        val apps = getInstalledLaunchableApps()
+        return when (section) {
+            "Игры" -> apps.filter { app ->
+                try { packageManager.getApplicationInfo(app.activityInfo.packageName, 0).category == android.content.pm.ApplicationInfo.CATEGORY_GAME }
+                catch (_: Exception) { false }
+            }
+            "Фильмы" -> apps.filter { app ->
+                val label = app.loadLabel(packageManager).toString().lowercase(Locale.getDefault())
+                listOf("youtube", "netflix", "кино", "ivi", "окко", "кинопоиск", "видео", "медиа", "prime video", "plex").any { label.contains(it) }
+            }
+            else -> apps
+        }
+    }
+
+    private fun buildAppsGrid(apps: List<android.content.pm.ResolveInfo>): LinearLayout {
+        val grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        if (apps.isEmpty()) {
+            grid.addView(text("В этом разделе пока нет найденных приложений.", 13f, 0xFFE5F5EA.toInt()))
+            return grid
+        }
+        val columns = if (resources.configuration.screenWidthDp >= 700) 5 else if (resources.configuration.screenWidthDp >= 400) 3 else 2
+        apps.chunked(columns).forEach { group ->
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            group.forEach { info ->
+                val tile = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; background = cardBg(); setPadding(dp(5), dp(8), dp(5), dp(8)); isFocusable = true }
+                val icon = try { info.loadIcon(packageManager) } catch (_: Exception) { null }
+                tile.addView(ImageView(this).apply { if (icon != null) setImageDrawable(icon); scaleType = ImageView.ScaleType.FIT_CENTER }, LinearLayout.LayoutParams(dp(46), dp(46)))
+                tile.addView(text(info.loadLabel(packageManager).toString(), 10f, Color.WHITE, true).apply { gravity = Gravity.CENTER; textAlignment = View.TEXT_ALIGNMENT_CENTER; maxLines = 2 })
+                tile.setOnClickListener {
+                    try { startActivity(packageManager.getLaunchIntentForPackage(info.activityInfo.packageName) ?: Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setPackage(info.activityInfo.packageName)) }
+                    catch (_: Exception) { Toast.makeText(this, "Не удалось открыть приложение", Toast.LENGTH_SHORT).show() }
+                }
+                tile.setOnFocusChangeListener { v, focused -> v.background = cardBg(focused); v.scaleX = if (focused) 1.05f else 1f; v.scaleY = if (focused) 1.05f else 1f }
+                row.addView(tile, LinearLayout.LayoutParams(0, dp(98), 1f).apply { rightMargin = dp(5); bottomMargin = dp(7) })
+            }
+            if (group.size < columns) row.addView(View(this), LinearLayout.LayoutParams(0, dp(98), (columns-group.size).toFloat()))
+            grid.addView(row)
+        }
+        return grid
+    }
 
     private fun getInstalledLaunchableApps(): List<android.content.pm.ResolveInfo> {
         val phoneIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
