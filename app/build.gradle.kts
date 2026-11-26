@@ -6,7 +6,7 @@ android {
     namespace = "com.christmasdream.launcher"
     compileSdk = 36
     defaultConfig {
-        applicationId = "com.christmasdream.launcher"
+        applicationId = "com.ramadan.dream.launcher"
         minSdk = 23
         targetSdk = 28
         versionCode = 3
