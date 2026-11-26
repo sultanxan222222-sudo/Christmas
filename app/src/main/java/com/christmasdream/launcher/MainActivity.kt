@@ -25,7 +25,7 @@ class MainActivity : Activity() {
     private lateinit var statusText: TextView
     private var prayerTimes = linkedMapOf<String, String>()
     private var nasheedPlayer: MediaPlayer? = null
-    private val currentSection get() = prefs.getString("launcher_section", "Главная") ?: "Главная"
+    private val currentSection get() = when (prefs.getString("launcher_section", "Главная")) { "Фильмы" -> "Кино"; else -> prefs.getString("launcher_section", "Главная") ?: "Главная" }
     private val prayerNames = linkedMapOf("fajr" to "Фаджр", "dhuhr" to "Зухр", "asr" to "Аср", "maghrib" to "Магриб", "isha" to "Иша")
     private val handler = Handler(Looper.getMainLooper())
     private val timeFormat = SimpleDateFormat("HH:mm", Locale("ru"))
@@ -239,6 +239,12 @@ class MainActivity : Activity() {
                 setOnFocusChangeListener { v, focused -> v.background = cardBg(focused) }
             }
             page.addView(adhanSetting, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+            val playAdhan = text("▶  ПРОСЛУШАТЬ ЗАПИСЬ АЗАНА", 14f, 0xFFFFD88A.toInt(), true).apply {
+                background = cardBg(true); setPadding(dp(16), dp(14), dp(16), dp(14)); isFocusable = true
+                setOnClickListener { playAdhanNow() }
+                setOnFocusChangeListener { v, focused -> v.background = cardBg(focused) }
+            }
+            page.addView(playAdhan, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
             val catSetting = text("🐈  Выбрать котёнка", 15f, Color.WHITE, true).apply {
                 background = cardBg(); setPadding(dp(16), dp(14), dp(16), dp(14)); isFocusable = true; setOnClickListener { chooseCat() }
                 setOnFocusChangeListener { v, focused -> v.background = cardBg(focused) }
@@ -409,6 +415,16 @@ class MainActivity : Activity() {
             }.setNegativeButton("Отмена", null).show()
     }
 
+    private fun playAdhanNow() {
+        try {
+            val intent = Intent(this, AdhanPlaybackService::class.java)
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent) else startService(intent)
+            Toast.makeText(this, "Запись азана запускается", Toast.LENGTH_SHORT).show()
+        } catch (_: Exception) {
+            Toast.makeText(this, "Не удалось запустить запись азана", Toast.LENGTH_LONG).show()
+        }
+    }
+
     private fun soundSettings() {
         val options = arrayOf("Включить азан по времени молитв", "Выключить автоматический азан", "Проверить азан сейчас")
         AlertDialog.Builder(this).setTitle("Звуки и азан")
@@ -416,10 +432,7 @@ class MainActivity : Activity() {
                 when (which) {
                     0 -> { prefs.edit().putBoolean("adhan_enabled", true).apply(); PrayerAlarm.scheduleNext(this); Toast.makeText(this, "Автоматический азан включён", Toast.LENGTH_SHORT).show() }
                     1 -> { prefs.edit().putBoolean("adhan_enabled", false).apply(); PrayerAlarm.cancel(this); Toast.makeText(this, "Автоматический азан выключен", Toast.LENGTH_SHORT).show() }
-                    2 -> {
-                        val intent = Intent(this, AdhanPlaybackService::class.java)
-                        if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent) else startService(intent)
-                    }
+                    2 -> playAdhanNow()
                 }
             }.show()
     }
