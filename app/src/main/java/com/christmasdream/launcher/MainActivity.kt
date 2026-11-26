@@ -293,10 +293,11 @@ class MainActivity : Activity() {
 
     private fun buildHijriCalendar(page: LinearLayout) {
         val todayCalendar = Calendar.getInstance(TimeZone.getTimeZone("Europe/Moscow"), Locale("ru"))
+        val dayAdjustment = prefs.getInt("hijri_adjustment_days", 1).coerceIn(-2, 2)
         val today = HijriCalendarMath.fromGregorian(
             todayCalendar.get(Calendar.YEAR),
             todayCalendar.get(Calendar.MONTH) + 1,
-            todayCalendar.get(Calendar.DAY_OF_MONTH)
+            todayCalendar.get(Calendar.DAY_OF_MONTH) + dayAdjustment
         )
         val monthOffset = prefs.getInt("hijri_month_offset", 0)
         val absoluteMonth = today.year * 12 + today.month - 1 + monthOffset
@@ -304,7 +305,7 @@ class MainActivity : Activity() {
         val shownMonth = Math.floorMod(absoluteMonth, 12) + 1
         val monthName = HijriCalendarMath.monthNames[shownMonth - 1]
         val monthDays = HijriCalendarMath.monthLength(shownYear, shownMonth)
-        val firstGregorian = HijriCalendarMath.toGregorian(shownYear, shownMonth, 1)
+        val firstGregorian = HijriCalendarMath.toGregorian(shownYear, shownMonth, 1, dayAdjustment)
         val firstCalendar = Calendar.getInstance(TimeZone.getTimeZone("Europe/Moscow"), Locale("ru")).apply {
             clear()
             set(firstGregorian.year, firstGregorian.month - 1, firstGregorian.day)
@@ -343,6 +344,27 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(0, -2, 1f))
         monthBar.addView(monthButton("›", 1))
         page.addView(monthBar)
+        val adjustmentRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        adjustmentRow.addView(text("Поправка даты: ${if (dayAdjustment > 0) "+" else ""}$dayAdjustment дн.", 11f, 0xFFBDEDD1.toInt(), true),
+            LinearLayout.LayoutParams(0, -2, 1f))
+        listOf("−" to -1, "+" to 1).forEach { (label, delta) ->
+            val adjustButton = text(label, 18f, 0xFFFFD88A.toInt(), true).apply {
+                gravity = Gravity.CENTER
+                background = cardBg()
+                setPadding(dp(13), dp(4), dp(13), dp(4))
+                isFocusable = true
+                setOnClickListener {
+                    prefs.edit().putInt("hijri_adjustment_days", (dayAdjustment + delta).coerceIn(-2, 2)).apply()
+                    buildScreen()
+                }
+                setOnFocusChangeListener { v, focused -> v.background = cardBg(focused) }
+            }
+            adjustmentRow.addView(adjustButton, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(5) })
+        }
+        page.addView(adjustmentRow)
 
         val weekdays = listOf("ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС")
         val weekdayRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
@@ -361,7 +383,7 @@ class MainActivity : Activity() {
                 val hijriDay = cellIndex - firstWeekday + 1
                 if (hijriDay in 1..monthDays) {
                     val isToday = monthOffset == 0 && today.day == hijriDay
-                    val gregorian = HijriCalendarMath.toGregorian(shownYear, shownMonth, hijriDay)
+                    val gregorian = HijriCalendarMath.toGregorian(shownYear, shownMonth, hijriDay, dayAdjustment)
                     val cell = LinearLayout(this).apply {
                         orientation = LinearLayout.VERTICAL
                         gravity = Gravity.CENTER
