@@ -3,14 +3,20 @@ package com.christmasdream.launcher
 import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.net.wifi.WifiManager
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
@@ -43,12 +49,40 @@ class MainActivity : Activity() {
     private lateinit var wallpaperView: ImageView
     private val wallpaperPrefs by lazy { getSharedPreferences("christmas_dream_settings", MODE_PRIVATE) }
     private val wallpaperRequestCode = 4107
+    private var wifiQuickButton: TextView? = null
+    private var wifiReceiverRegistered = false
+    private val wifiStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            refreshWifiQuickButton()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = deepRed
         window.navigationBarColor = deepRed
         buildUi()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        val filter = IntentFilter(WifiManager.WIFI_STATE_CHANGED_ACTION)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(wifiStateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(wifiStateReceiver, filter)
+        }
+        wifiReceiverRegistered = true
+        refreshWifiQuickButton()
+    }
+
+    override fun onStop() {
+        if (wifiReceiverRegistered) {
+            try { unregisterReceiver(wifiStateReceiver) } catch (_: Exception) { }
+            wifiReceiverRegistered = false
+        }
+        super.onStop()
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
@@ -108,7 +142,45 @@ class MainActivity : Activity() {
         brand.addView(label("РОЖДЕСТВО НАЧИНАЕТСЯ ДОМА", 9f, ivory, true))
         header.addView(brand)
         val date = SimpleDateFormat("d MMMM", Locale("ru")).format(Date())
-        header.addView(label("❄  $date  ❄", 13f, white, true))
+        header.addView(label("❄  $date  ❄", 12f, white, true))
+        wifiQuickButton = label("Wi-Fi\n…", 9f, white, true).apply {
+            gravity = Gravity.CENTER
+            textAlignment = View.TEXT_ALIGNMENT_CENTER
+            isFocusable = true
+            isClickable = true
+            contentDescription = "Управление Wi-Fi: включить или выключить"
+            background = shape(0xAA315A50.toInt(), 26, gold)
+            setPadding(dp(3), dp(3), dp(3), dp(3))
+            setOnClickListener { toggleWifi() }
+            setOnFocusChangeListener { view, focused ->
+                view.background = shape(
+                    if (focused) 0xFF39775F.toInt() else 0xAA315A50.toInt(),
+                    26,
+                    if (focused) white else gold
+                )
+            }
+        }
+        header.addView(wifiQuickButton, LinearLayout.LayoutParams(dp(54), dp(54)).apply {
+            leftMargin = dp(6)
+        })
+        val settingsButton = label("⚙", 23f, gold, true).apply {
+            gravity = Gravity.CENTER
+            isFocusable = true
+            isClickable = true
+            contentDescription = "Открыть системные настройки телевизора"
+            background = shape(0xAA59351F.toInt(), 26, gold)
+            setOnClickListener { openTvSettings() }
+            setOnFocusChangeListener { view, focused ->
+                view.background = shape(
+                    if (focused) 0xFF825126.toInt() else 0xAA59351F.toInt(),
+                    26,
+                    if (focused) white else gold
+                )
+            }
+        }
+        header.addView(settingsButton, LinearLayout.LayoutParams(dp(54), dp(54)).apply {
+            leftMargin = dp(7)
+        })
         shell.addView(header)
 
         val garland = TextView(this).apply {
@@ -351,10 +423,90 @@ class MainActivity : Activity() {
         info.background = shape(0xDDF8F3EA.toInt(), 22, 0xAAFFFFFF.toInt())
         info.setPadding(dp(18), dp(18), dp(18), dp(18))
         content.addView(info)
+        actionCard("⚙   Открыть системные настройки телевизора") { openTvSettings() }
+        actionCard("⌁   Настройки Wi-Fi") { openWifiSettings() }
+        actionCard("🔊   Настройки звука") { openSettingsAction(Settings.ACTION_SOUND_SETTINGS) }
+        actionCard("🖥   Настройки изображения") { openSettingsAction(Settings.ACTION_DISPLAY_SETTINGS) }
+        actionCard("▦   Управление приложениями") { openSettingsAction(Settings.ACTION_APPLICATION_SETTINGS) }
         actionCard("🖼   Выбрать свой фон") { chooseWallpaper() }
         actionCard("↺   Вернуть праздничный фон") { resetWallpaper() }
         actionCard("↻   Обновить список приложений") { render() }
         actionCard("⌂   Вернуться к штатному экрану TCL") { returnToStock() }
+    }
+
+    private fun refreshWifiQuickButton() {
+        val button = wifiQuickButton ?: return
+        val enabled = try {
+            (applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager).isWifiEnabled
+        } catch (_: Exception) {
+            false
+        }
+        button.text = if (enabled) "Wi-Fi\nВКЛ" else "Wi-Fi\nВЫКЛ"
+        button.contentDescription = if (enabled) {
+            "Wi-Fi включён. Нажмите, чтобы выключить"
+        } else {
+            "Wi-Fi выключен. Нажмите, чтобы включить"
+        }
+        button.background = shape(
+            if (enabled) 0xAA315A50.toInt() else 0xAA51313B.toInt(),
+            26,
+            gold
+        )
+    }
+
+    @Suppress("DEPRECATION")
+    private fun toggleWifi() {
+        try {
+            val manager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            val targetEnabled = !manager.isWifiEnabled
+            val accepted = manager.setWifiEnabled(targetEnabled)
+            if (accepted) {
+                android.widget.Toast.makeText(
+                    this,
+                    if (targetEnabled) "Запрос на включение Wi-Fi отправлен" else "Запрос на выключение Wi-Fi отправлен",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            } else {
+                openWifiSettings()
+            }
+        } catch (_: SecurityException) {
+            openWifiSettings()
+        } catch (_: Exception) {
+            openWifiSettings()
+        }
+    }
+
+    private fun openWifiSettings() {
+        try {
+            val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                Intent(Settings.Panel.ACTION_WIFI)
+            } else {
+                Intent(Settings.ACTION_WIFI_SETTINGS)
+            }
+            startActivity(intent)
+        } catch (_: Exception) {
+            try {
+                startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
+            } catch (_: Exception) {
+                android.widget.Toast.makeText(this, "Не удалось открыть настройки Wi-Fi", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun openTvSettings() {
+        try {
+            startActivity(Intent(Settings.ACTION_SETTINGS))
+        } catch (_: Exception) {
+            android.widget.Toast.makeText(this, "Не удалось открыть системные настройки телевизора", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun openSettingsAction(action: String) {
+        try {
+            startActivity(Intent(action))
+        } catch (_: Exception) {
+            openTvSettings()
+        }
     }
 
     private fun setDefaultWallpaper() {
