@@ -41,9 +41,9 @@ jobs:
           request = urllib.request.Request(page, headers={"User-Agent": "Mozilla/5.0"})
           source = urllib.request.urlopen(request, timeout=30).read().decode("utf-8", "ignore")
           source = source.replace("\\/", "/").replace("&amp;", "&")
-          matches = re.findall(r'https?://cdn\\.pixabay\\.com/audio/[^"\\\\ <>]+?\\.mp3(?:\\?[^"\\\\ <>]*)?', source)
+          matches = re.findall(r'https?://cdn\\.pixabay\\.com/audio/[^"\\\\ <>]+?\\.mp3(?:\\?[^"\\ <>]*)?', source)
           if not matches:
-              matches = re.findall(r'//cdn\\.pixabay\\.com/audio/[^"\\\\ <>]+?\\.mp3(?:\\?[^"\\\\ <>]*)?', source)
+              matches = re.findall(r'//cdn\\.pixabay\\.com/audio/[^"\\\\ <>]+?\\.mp3(?:\\?[^"\\ <>]*)?', source)
           if not matches:
               raise SystemExit("Could not locate the official Pixabay MP3 asset in the track page")
           audio_url = html.unescape(matches[0])
@@ -51,7 +51,8 @@ jobs:
               audio_url = "https:" + audio_url
           req = urllib.request.Request(audio_url, headers={"User-Agent": "Mozilla/5.0", "Referer": page})
           data = urllib.request.urlopen(req, timeout=60).read()
-          if len(data) < 10000 or not data[:3] == b"ID3":
+          is_mp3 = data[:3] == b"ID3" or (len(data) > 1 and data[0] == 0xFF and (data[1] & 0xE0) == 0xE0)
+          if len(data) < 10000 or not is_mp3:
               raise SystemExit("Downloaded nasheed audio did not pass MP3 validation")
           open("app/src/main/res/raw/nasheed.mp3", "wb").write(data)
           print("Downloaded Ramadan nasheed:", len(data), "bytes")
