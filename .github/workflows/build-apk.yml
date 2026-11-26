@@ -41,8 +41,19 @@ jobs:
           ffmpeg -y -i /tmp/ramadan_nasheed.flac -af "volume=0.55,afade=t=in:st=0:d=2,afade=t=out:st=185:d=5" -codec:a libmp3lame -b:a 96k -ar 44100 -ac 2 app/src/main/res/raw/nasheed.mp3
           test -s app/src/main/res/raw/nasheed.mp3
           file app/src/main/res/raw/nasheed.mp3
+          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 app/src/main/res/raw/adhan.ogg
+          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 app/src/main/res/raw/nasheed.mp3
+          test -s app/src/main/res/raw/adhan.ogg
+          test -s app/src/main/res/raw/nasheed.mp3
       - name: Build phone and TV variants
         run: gradle --no-daemon assemblePhoneDebug assembleTvDebug
+      - name: Verify both APKs contain playable audio resources
+        run: |
+          for apk in app/build/outputs/apk/phone/debug/app-phone-debug.apk app/build/outputs/apk/tv/debug/app-tv-debug.apk; do
+            test -s "$apk"
+            unzip -l "$apk" | grep -q "res/raw/adhan.ogg"
+            unzip -l "$apk" | grep -q "res/raw/nasheed.mp3"
+          done
       - name: Upload phone APK
         uses: actions/upload-artifact@v4
         with:
