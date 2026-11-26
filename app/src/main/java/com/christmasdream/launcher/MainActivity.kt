@@ -245,9 +245,6 @@ class MainActivity : Activity() {
             setPadding(dp(16), dp(10), dp(16), dp(12))
             setBackgroundColor(Color.TRANSPARENT)
         }
-        // Snow layer sits between the wallpaper and the interactive launcher controls.
-        snow = SnowView()
-        frame.addView(snow, FrameLayout.LayoutParams(-1, -1))
         frame.addView(shell, FrameLayout.LayoutParams(-1, -1))
 
         val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
@@ -259,7 +256,7 @@ class MainActivity : Activity() {
         header.addView(label("❄  $date  ❄", 13f, white, true))
         iceClock = IceClockView(this, wallpaperPrefs.getInt("ice_clock_skin", 0))
         header.addView(iceClock, LinearLayout.LayoutParams(dp(66), dp(66)).apply { leftMargin = dp(8) })
-        wifiQuickButton = label("Wi-Fi\\n…", 9f, white, true).apply {
+        wifiQuickButton = label("Wi-Fi\n…", 9f, white, true).apply {
             gravity = Gravity.CENTER
             textAlignment = View.TEXT_ALIGNMENT_CENTER
             isFocusable = true
@@ -306,6 +303,9 @@ class MainActivity : Activity() {
         val scroller = ScrollView(this).apply { isFillViewport = true; clipToPadding = false; addView(content) }
         shell.addView(scroller, LinearLayout.LayoutParams(-1, 0, 1f))
 
+        // Foreground snowfall is transparent and non-clickable; remote controls pass through.
+        snow = SnowView()
+        frame.addView(snow, FrameLayout.LayoutParams(-1, -1))
         setContentView(frame)
         render()
     }
@@ -361,8 +361,8 @@ class MainActivity : Activity() {
                 intArrayOf(0xF00B101B.toInt(), 0xB80B101B.toInt(), 0x000B101B)
             )
         }
-        copy.addView(label("ЗИМА, КОТОРАЯ\\nОЖИВАЕТ ДОМА", if (wide) 25f else 19f, white, true))
-        copy.addView(label("Пусть каждый вечер будет\\nнаполнен теплом и чудом.", 12f, Color.rgb(255, 224, 185), true).apply {
+        copy.addView(label("ЗИМА, КОТОРАЯ\nОЖИВАЕТ ДОМА", if (wide) 25f else 19f, white, true))
+        copy.addView(label("Пусть каждый вечер будет\nнаполнен теплом и чудом.", 12f, Color.rgb(255, 224, 185), true).apply {
             setPadding(0, dp(7), 0, dp(10))
         })
         copy.addView(label("✦  ДОБРО ПОЖАЛОВАТЬ  ✦", 9f, deepRed, true).apply {
@@ -472,7 +472,7 @@ class MainActivity : Activity() {
     private fun refreshWifiQuickButton() {
         val manager = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
         val enabled = try { manager?.isWifiEnabled == true } catch (_: Exception) { false }
-        wifiQuickButton?.text = if (enabled) "Wi-Fi\\nВКЛ" else "Wi-Fi\\nВЫКЛ"
+        wifiQuickButton?.text = if (enabled) "Wi-Fi\nВКЛ" else "Wi-Fi\nВЫКЛ"
         wifiQuickButton?.contentDescription = if (enabled) "Wi-Fi включён. Нажмите, чтобы выключить" else "Wi-Fi выключен. Нажмите, чтобы включить"
     }
 
