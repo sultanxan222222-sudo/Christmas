@@ -1,7 +1,7 @@
 name: Build Christmas Dream Launcher APKs
 on:
   push:
-    branches: [ main ]
+    branches: [ main, feature/home-cards-ice-clock-jingle ]
   workflow_dispatch:
 permissions:
   contents: read
@@ -27,6 +27,19 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+      - name: Install orchestral music renderer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fluidsynth timgm6mb-soundfont ffmpeg
+          python -m pip install --user pretty_midi
+      - name: Render three-minute orchestral Jingle Bells
+        run: |
+          python tools/build_jingle.py
+          mkdir -p app/src/main/res/raw
+          fluidsynth -ni -g 0.42 -r 44100 -F /tmp/jingle_bells.wav /usr/share/sounds/sf2/TimGM6mb.sf2 build/music/jingle_bells.mid
+          ffmpeg -y -i /tmp/jingle_bells.wav -t 181 -af "loudnorm=I=-20:TP=-3:LRA=8,afade=t=in:st=0:d=2,afade=t=out:st=177:d=4" -codec:a libmp3lame -b:a 96k -ar 44100 -ac 2 app/src/main/res/raw/jingle_bells.mp3
+          test -s app/src/main/res/raw/jingle_bells.mp3
+          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 app/src/main/res/raw/jingle_bells.mp3
       - name: Add full-scene Christmas artwork
         run: |
           mkdir -p app/src/main/res/drawable-nodpi
