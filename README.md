@@ -20,3 +20,5 @@ This is the first implementation build. Verify the API response and prayer sched
 Latest integration checkpoint: the adhan playback service is declared as a foreground service and the alarm is restored after reboot. The phone and TV variants are built from the current branch head.
 
 Build checkpoint: duplicate imports detected in CI have been removed from the current source.
+
+Package identity: phone APK uses com.ramadan.dream.launcher; TV APK uses com.ramadan.dream.launcher.tv so it installs separately from the earlier Christmas launcher.
