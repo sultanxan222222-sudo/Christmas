@@ -628,11 +628,13 @@ class AdhanPlaybackService : Service() {
             player?.release()
             val id = resources.getIdentifier("adhan", "raw", packageName)
             if (id != 0) {
-                player = MediaPlayer.create(this, id)?.apply {
-                    setAudioAttributes(android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_ALARM).setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC).build())
-                    setOnCompletionListener { it.release(); player = null; stopSelf() }
-                    start()
-                } ?: stopSelf()
+                val created = MediaPlayer.create(this, id)
+                if (created != null) {
+                    player = created
+                    created.setAudioAttributes(android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_ALARM).setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC).build())
+                    created.setOnCompletionListener { it.release(); player = null; stopSelf() }
+                    created.start()
+                } else stopSelf()
             } else stopSelf()
         } catch (_: Exception) { stopSelf() }
         return START_NOT_STICKY
