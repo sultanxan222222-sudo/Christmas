@@ -30,8 +30,8 @@ object HijriCalendarMath {
     fun monthLength(year: Int, month: Int): Int =
         islamicToJdn(year, month + 1, 1) - islamicToJdn(year, month, 1)
 
-    fun toGregorian(year: Int, month: Int, day: Int): GregorianDate =
-        jdnToGregorian(islamicToJdn(year, month, day))
+    fun toGregorian(year: Int, month: Int, day: Int, adjustmentDays: Int = 0): GregorianDate =
+        jdnToGregorian(islamicToJdn(year, month, day) - adjustmentDays)
 
     private fun islamicToJdn(year: Int, month: Int, day: Int): Int {
         val elapsedMonths = month - 1
