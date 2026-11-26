@@ -30,7 +30,7 @@ jobs:
       - name: Install orchestral music renderer
         run: |
           sudo apt-get update
-          sudo apt-get install -y fluidsynth timgm6mb-soundfont ffmpeg
+          sudo apt-get install -y --no-install-recommends fluidsynth timgm6mb-soundfont ffmpeg
           python -m pip install --user pretty_midi
       - name: Render three-minute orchestral Jingle Bells
         run: |
