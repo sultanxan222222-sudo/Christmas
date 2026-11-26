@@ -19,7 +19,7 @@ class JingleMusicPlayer(context: Context) {
                 current = MediaPlayer.create(appContext, R.raw.jingle_bells) ?: return
                 current.isLooping = true
                 // Quiet background level. Android's own media-volume control still applies.
-                current.setVolume(0.075f, 0.075f)
+                current.setVolume(0.20f, 0.20f)
                 player = current
             }
             if (!current.isPlaying) current.start()
