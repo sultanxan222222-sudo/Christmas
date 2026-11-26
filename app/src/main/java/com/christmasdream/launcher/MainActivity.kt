@@ -46,6 +46,9 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         window.statusBarColor = Color.rgb(3, 24, 19)
         window.navigationBarColor = Color.rgb(3, 24, 19)
+        prayerNames.keys.forEach { key ->
+            prefs.getString("prayer_$key", null)?.let { prayerTimes[key] = it }
+        }
         buildScreen()
         handler.post(updateClock)
         if (prefs.getBoolean("nasheed_enabled", true)) startNasheed()
@@ -197,7 +200,10 @@ class MainActivity : Activity() {
         page.addView(statusText)
         page.addView(text("ВАШЕ МЕНЮ", 14f, 0xFFFFD88A.toInt(), true).apply { setPadding(0, dp(16), 0, dp(6)) })
         val menu = listOf("🐈  Выбрать котёнка" to { chooseCat() }, "🕌  Азан и звуки" to { soundSettings() },
-            "🌙  Календарь хиджры" to { Toast.makeText(this, "Календарь добавим в следующую сборку", Toast.LENGTH_SHORT).show() },
+            "🌙  Календарь хиджры" to {
+                prefs.edit().putString("launcher_section", "Календарь").putInt("hijri_month_offset", 0).apply()
+                buildScreen()
+            },
             "⚙  Настройки" to { soundSettings() })
         menu.forEach { (name, action) ->
             val item = text(name, 15f, Color.WHITE, true)
@@ -227,6 +233,8 @@ class MainActivity : Activity() {
             setOnFocusChangeListener { v, focused -> v.background = cardBg(focused) }
         }
         page.addView(musicToggle, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+        } else if (currentSection == "Календарь") {
+            buildHijriCalendar(page)
         } else if (currentSection == "Настройки") {
             page.addView(text("НАСТРОЙКИ ЛАУНЧЕРА", 17f, 0xFFFFD88A.toInt(), true).apply { setPadding(0, dp(18), 0, dp(8)) })
             val musicSetting = text("♫  Фоновый нашид: " + if (prefs.getBoolean("nasheed_enabled", true)) "ВКЛ" else "ВЫКЛ", 15f, Color.WHITE, true).apply {
@@ -282,6 +290,147 @@ class MainActivity : Activity() {
     }
 
 
+
+    private fun buildHijriCalendar(page: LinearLayout) {
+        val todayCalendar = Calendar.getInstance(TimeZone.getTimeZone("Europe/Moscow"), Locale("ru"))
+        val today = HijriCalendarMath.fromGregorian(
+            todayCalendar.get(Calendar.YEAR),
+            todayCalendar.get(Calendar.MONTH) + 1,
+            todayCalendar.get(Calendar.DAY_OF_MONTH)
+        )
+        val monthOffset = prefs.getInt("hijri_month_offset", 0)
+        val absoluteMonth = today.year * 12 + today.month - 1 + monthOffset
+        val shownYear = Math.floorDiv(absoluteMonth, 12)
+        val shownMonth = Math.floorMod(absoluteMonth, 12) + 1
+        val monthName = HijriCalendarMath.monthNames[shownMonth - 1]
+        val monthDays = HijriCalendarMath.monthLength(shownYear, shownMonth)
+        val firstGregorian = HijriCalendarMath.toGregorian(shownYear, shownMonth, 1)
+        val firstCalendar = Calendar.getInstance(TimeZone.getTimeZone("Europe/Moscow"), Locale("ru")).apply {
+            clear()
+            set(firstGregorian.year, firstGregorian.month - 1, firstGregorian.day)
+        }
+        val firstWeekday = (firstCalendar.get(Calendar.DAY_OF_WEEK) + 5) % 7
+
+        page.addView(text("КАЛЕНДАРЬ ХИДЖРЫ", 18f, 0xFFFFD88A.toInt(), true).apply {
+            setPadding(0, dp(18), 0, dp(5))
+        })
+        page.addView(text(
+            "Сегодня: ${today.day} ${HijriCalendarMath.monthNames[today.month - 1]} ${today.year} г.х.",
+            13f, 0xFFE5F5EA.toInt(), true
+        ).apply {
+            background = cardBg(true)
+            setPadding(dp(13), dp(12), dp(13), dp(12))
+        })
+        val monthBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(12), 0, dp(8))
+        }
+        fun monthButton(label: String, delta: Int): TextView = text(label, 23f, 0xFFFFD88A.toInt(), true).apply {
+            gravity = Gravity.CENTER
+            background = cardBg()
+            isFocusable = true
+            setPadding(dp(15), dp(5), dp(15), dp(5))
+            setOnClickListener {
+                prefs.edit().putInt("hijri_month_offset", monthOffset + delta).apply()
+                buildScreen()
+            }
+            setOnFocusChangeListener { v, focused -> v.background = cardBg(focused) }
+        }
+        monthBar.addView(monthButton("‹", -1))
+        monthBar.addView(text("$monthName  $shownYear г.х.", 16f, Color.WHITE, true).apply {
+            gravity = Gravity.CENTER
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        monthBar.addView(monthButton("›", 1))
+        page.addView(monthBar)
+
+        val weekdays = listOf("ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ", "ВС")
+        val weekdayRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        weekdays.forEach { name ->
+            weekdayRow.addView(text(name, 10f, 0xFFBDEDD1.toInt(), true).apply {
+                gravity = Gravity.CENTER
+            }, LinearLayout.LayoutParams(0, dp(30), 1f))
+        }
+        page.addView(weekdayRow)
+
+        val rows = (firstWeekday + monthDays + 6) / 7
+        repeat(rows) { rowIndex ->
+            val week = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            repeat(7) { column ->
+                val cellIndex = rowIndex * 7 + column
+                val hijriDay = cellIndex - firstWeekday + 1
+                if (hijriDay in 1..monthDays) {
+                    val isToday = monthOffset == 0 && today.day == hijriDay
+                    val gregorian = HijriCalendarMath.toGregorian(shownYear, shownMonth, hijriDay)
+                    val cell = LinearLayout(this).apply {
+                        orientation = LinearLayout.VERTICAL
+                        gravity = Gravity.CENTER
+                        background = cardBg(isToday)
+                        setPadding(dp(2), dp(5), dp(2), dp(4))
+                        isFocusable = true
+                        contentDescription = "$hijriDay $monthName, ${gregorian.day}.${gregorian.month}.${gregorian.year}"
+                        addView(text(hijriDay.toString(), 16f,
+                            if (isToday) 0xFFFFD88A.toInt() else Color.WHITE, true).apply {
+                            gravity = Gravity.CENTER
+                        })
+                        addView(text(gregorian.day.toString(), 9f, 0xFFBDEDD1.toInt()).apply {
+                            gravity = Gravity.CENTER
+                        })
+                        setOnFocusChangeListener { v, focused -> v.background = cardBg(focused || isToday) }
+                    }
+                    week.addView(cell, LinearLayout.LayoutParams(0, dp(58), 1f).apply {
+                        rightMargin = dp(3)
+                        bottomMargin = dp(4)
+                    })
+                } else {
+                    week.addView(View(this), LinearLayout.LayoutParams(0, dp(58), 1f).apply {
+                        rightMargin = dp(3)
+                        bottomMargin = dp(4)
+                    })
+                }
+            }
+            page.addView(week)
+        }
+
+        val observance = when (shownMonth) {
+            9 -> "Рамадан — месяц поста, Корана и милости"
+            10 -> "Шавваль: первый день месяца — Ид аль-Фитр"
+            12 -> "Зуль-хиджа — месяц хаджа; 10-й день — Ид аль-Адха"
+            else -> "Хиджра — лунный календарь из 12 месяцев"
+        }
+        page.addView(text(observance, 12f, 0xFFFFD88A.toInt(), true).apply {
+            background = cardBg()
+            setPadding(dp(12), dp(11), dp(12), dp(11))
+        }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+        page.addView(text(
+            "Календарь работает без интернета. Это расчётный исламский календарь; из-за местного наблюдения луны дата может отличаться на один день.",
+            10f, 0xFFBDEDD1.toInt()
+        ).apply { setPadding(dp(3), dp(9), dp(3), dp(12)) })
+        val todayButton = text("◎  Вернуться к текущему месяцу", 13f, 0xFFFFD88A.toInt(), true).apply {
+            background = cardBg()
+            setPadding(dp(13), dp(12), dp(13), dp(12))
+            isFocusable = true
+            setOnClickListener {
+                prefs.edit().putInt("hijri_month_offset", 0).apply()
+                buildScreen()
+            }
+            setOnFocusChangeListener { v, focused -> v.background = cardBg(focused) }
+        }
+        page.addView(todayButton)
+    }
+
+    private fun isMinaretLit(): Boolean {
+        if (prayerTimes.isEmpty()) return false
+        val now = Calendar.getInstance(TimeZone.getTimeZone("Europe/Moscow"))
+        val nowMinutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
+        return prayerTimes.values.any { value ->
+            try {
+                val parts = value.take(5).split(":")
+                val prayerMinute = parts[0].toInt() * 60 + parts[1].toInt()
+                nowMinutes >= prayerMinute && nowMinutes < prayerMinute + 12
+            } catch (_: Exception) { false }
+        }
+    }
 
     private fun getAppsForSection(section: String): List<android.content.pm.ResolveInfo> {
         val apps = getInstalledLaunchableApps()
@@ -497,11 +646,20 @@ class MainActivity : Activity() {
             c.drawRect(w*.35f, h*.58f, w*.68f, h*.82f, p)
             c.drawRect(w*.47f, h*.48f, w*.53f, h*.58f, p)
             c.drawCircle(w*.5f, h*.48f, w*.035f, p)
-            // Minaret with warm lantern glow
-            p.color = 0xFF0A211C.toInt(); c.drawRect(w*.72f, h*.38f, w*.755f, h*.79f, p)
+            // Minaret: lantern and windows glow for twelve minutes after each prayer.
+            val prayerGlow = isMinaretLit()
+            val glowPulse = if (prayerGlow) (0.78f + 0.22f * kotlin.math.sin(animationPhase * 2.2f)).toFloat() else 0.16f
+            p.color = 0xFF0A211C.toInt()
+            c.drawRect(w*.72f, h*.38f, w*.755f, h*.79f, p)
             c.drawCircle(w*.737f, h*.36f, w*.026f, p)
-            p.color = 0xFFFFD887.toInt(); p.setShadowLayer(22f, 0f, 0f, 0xFFFFC45B.toInt())
-            c.drawCircle(w*.737f, h*.49f, w*.012f, p); p.clearShadowLayer()
+            val lanternAlpha = (65 + 190 * glowPulse).toInt().coerceIn(0, 255)
+            p.color = Color.argb(lanternAlpha, 255, 207, 125)
+            p.setShadowLayer(if (prayerGlow) dp(25).toFloat() else dp(3).toFloat(), 0f, 0f,
+                if (prayerGlow) 0xFFFFC45B.toInt() else 0x33FFC45B)
+            c.drawCircle(w*.737f, h*.49f, w*.014f, p)
+            c.drawRoundRect(w*.727f, h*.555f, w*.747f, h*.585f, dp(2).toFloat(), dp(2).toFloat(), p)
+            c.drawRoundRect(w*.727f, h*.625f, w*.747f, h*.655f, dp(2).toFloat(), dp(2).toFloat(), p)
+            p.clearShadowLayer()
             // Crescent and stylized kitten
             val cx = w*.87f; val cy = h*.20f; val r = w*.085f
             c.save()
