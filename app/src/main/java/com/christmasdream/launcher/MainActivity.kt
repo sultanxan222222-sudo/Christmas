@@ -324,5 +324,5 @@ class AdhanPlaybackService : Service() {
         } catch (_: Exception) { stopSelf() }
         return START_NOT_STICKY
     }
-    override fun onDestroy() { player?.release(); player = null; if (Build.VERSION.SDK_INT >= 24) stopForeground(STOP_FOREGROUND_REMOVE) else @Suppress("DEPRECATION") stopForeground(true); super.onDestroy() }
+    override fun onDestroy() { player?.release(); player = null; if (Build.VERSION.SDK_INT >= 24) stopForeground(STOP_FOREGROUND_REMOVE) else stopForeground(true); super.onDestroy() }
 }
