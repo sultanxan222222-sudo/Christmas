@@ -77,8 +77,10 @@ class MainActivity : Activity() {
                 val id = resources.getIdentifier("nasheed", "raw", packageName)
                 if (id == 0) return
                 nasheedPlayer = MediaPlayer.create(this, id)?.apply {
+                    setAudioStreamType(android.media.AudioManager.STREAM_MUSIC)
                     isLooping = true
-                    setVolume(0.32f, 0.32f)
+                    setVolume(0.18f, 0.18f)
+                    setOnErrorListener { mp, _, _ -> mp.reset(); true }
                 }
             }
             nasheedPlayer?.start()
@@ -139,9 +141,9 @@ class MainActivity : Activity() {
         page.addView(header)
         val nav = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         val navScroll = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; clipToPadding = false; addView(nav) }
-        listOf("Главная", "Фильмы", "Игры", "Приложения").forEach { section ->
+        listOf("Главная", "Музыка", "Кино", "Игры", "Приложения").forEach { section ->
             val active = currentSection == section
-            val chip = text(when(section) { "Фильмы" -> "🎬  Фильмы"; "Игры" -> "🎮  Игры"; "Приложения" -> "▦  Приложения"; else -> "⌂  Главная" }, 12f,
+            val chip = text(when(section) { "Музыка" -> "♫  МУЗЫКА"; "Кино" -> "🎬  КИНО"; "Игры" -> "🎮  ИГРЫ"; "Приложения" -> "▦  ПРИЛОЖЕНИЯ"; else -> "⌂  ГЛАВНАЯ" }, 12f,
                 if (active) 0xFFFFD88A.toInt() else Color.WHITE, true).apply {
                 gravity = Gravity.CENTER
                 background = cardBg(active)
@@ -248,9 +250,26 @@ class MainActivity : Activity() {
                 setOnFocusChangeListener { v, focused -> v.background = cardBg(focused) }
             }
             page.addView(clockSetting, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+        } else if (currentSection == "Музыка") {
+            page.addView(text("МУЗЫКА И НАШИД", 17f, 0xFFFFD88A.toInt(), true).apply { setPadding(0, dp(18), 0, dp(8)) })
+            page.addView(text("Тихий нашид играет на главном экране. Здесь его можно включить или выключить.", 12f, 0xFFE5F5EA.toInt()))
+            val musicToggle = text("♫  ФОНОВЫЙ НАШИД: " + if (prefs.getBoolean("nasheed_enabled", true)) "ВКЛЮЧЁН" else "ВЫКЛЮЧЕН", 15f, 0xFFFFD88A.toInt(), true).apply {
+                background = cardBg(true); setPadding(dp(16), dp(15), dp(16), dp(15)); isFocusable = true
+                setOnClickListener { toggleNasheed() }
+                setOnFocusChangeListener { v, focused -> v.background = cardBg(focused) }
+            }
+            page.addView(musicToggle, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
+            val testNasheed = text("▶  ПРОВЕРИТЬ ЗВУК НАШИДА", 13f, Color.WHITE, true).apply {
+                background = cardBg(); setPadding(dp(16), dp(13), dp(16), dp(13)); isFocusable = true
+                setOnClickListener { prefs.edit().putBoolean("nasheed_enabled", true).apply(); startNasheed(); Toast.makeText(this@MainActivity, "Запущен фоновый нашид", Toast.LENGTH_SHORT).show(); buildScreen() }
+                setOnFocusChangeListener { v, focused -> v.background = cardBg(focused) }
+            }
+            page.addView(testNasheed, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(14) })
+            page.addView(text("УСТАНОВЛЕННЫЕ МУЗЫКАЛЬНЫЕ ПРИЛОЖЕНИЯ", 13f, 0xFFFFD88A.toInt(), true))
+            page.addView(buildAppsGrid(getAppsForSection("Музыка")), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
         } else {
             val apps = getAppsForSection(currentSection)
-            page.addView(text(when(currentSection) { "Фильмы" -> "ФИЛЬМЫ И ВИДЕО"; "Игры" -> "ВАШИ ИГРЫ"; else -> "УСТАНОВЛЕННЫЕ ПРИЛОЖЕНИЯ" }, 17f, 0xFFFFD88A.toInt(), true).apply { setPadding(0, dp(18), 0, dp(8)) })
+            page.addView(text(when(currentSection) { "Кино" -> "КИНО И ВИДЕО"; "Игры" -> "ВАШИ ИГРЫ"; else -> "УСТАНОВЛЕННЫЕ ПРИЛОЖЕНИЯ" }, 17f, 0xFFFFD88A.toInt(), true).apply { setPadding(0, dp(18), 0, dp(8)) })
             page.addView(buildAppsGrid(apps), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
         }
         setContentView(root)
@@ -261,11 +280,15 @@ class MainActivity : Activity() {
     private fun getAppsForSection(section: String): List<android.content.pm.ResolveInfo> {
         val apps = getInstalledLaunchableApps()
         return when (section) {
+            "Музыка" -> apps.filter { app ->
+                val label = app.loadLabel(packageManager).toString().lowercase(Locale.getDefault())
+                listOf("музык", "music", "spotify", "soundcloud", "deezer", "радио", "radio", "youtube music", "яндекс музыка", "amazon music", "tunein").any { label.contains(it) }
+            }
             "Игры" -> apps.filter { app ->
                 try { packageManager.getApplicationInfo(app.activityInfo.packageName, 0).category == android.content.pm.ApplicationInfo.CATEGORY_GAME }
                 catch (_: Exception) { false }
             }
-            "Фильмы" -> apps.filter { app ->
+            "Кино" -> apps.filter { app ->
                 val label = app.loadLabel(packageManager).toString().lowercase(Locale.getDefault())
                 listOf("youtube", "netflix", "кино", "ivi", "окко", "кинопоиск", "видео", "медиа", "prime video", "plex").any { label.contains(it) }
             }
@@ -393,7 +416,10 @@ class MainActivity : Activity() {
                 when (which) {
                     0 -> { prefs.edit().putBoolean("adhan_enabled", true).apply(); PrayerAlarm.scheduleNext(this); Toast.makeText(this, "Автоматический азан включён", Toast.LENGTH_SHORT).show() }
                     1 -> { prefs.edit().putBoolean("adhan_enabled", false).apply(); PrayerAlarm.cancel(this); Toast.makeText(this, "Автоматический азан выключен", Toast.LENGTH_SHORT).show() }
-                    2 -> startService(Intent(this, AdhanPlaybackService::class.java))
+                    2 -> {
+                        val intent = Intent(this, AdhanPlaybackService::class.java)
+                        if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent) else startService(intent)
+                    }
                 }
             }.show()
     }
@@ -590,9 +616,10 @@ class AdhanPlaybackService : Service() {
             val id = resources.getIdentifier("adhan", "raw", packageName)
             if (id != 0) {
                 player = MediaPlayer.create(this, id)?.apply {
+                    setAudioAttributes(android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_ALARM).setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC).build())
                     setOnCompletionListener { it.release(); player = null; stopSelf() }
                     start()
-                }
+                } ?: stopSelf()
             } else stopSelf()
         } catch (_: Exception) { stopSelf() }
         return START_NOT_STICKY
