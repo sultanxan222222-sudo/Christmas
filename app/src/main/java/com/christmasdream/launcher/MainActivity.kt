@@ -13,6 +13,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.*
+import java.net.HttpURLConnection
+import java.net.URL
 import kotlin.concurrent.thread
 import kotlin.random.Random
 
@@ -28,7 +30,12 @@ class MainActivity : Activity() {
     private val timeFormat = SimpleDateFormat("HH:mm", Locale("ru"))
     private val updateClock = object : Runnable {
         override fun run() {
-            if (::clockText.isInitialized) clockText.text = SimpleDateFormat("HH:mm:ss", Locale("ru")).format(Date())
+            if (::clockText.isInitialized) clockText.text = when (prefs.getInt("clock", 2)) {
+                0 -> SimpleDateFormat("HH:mm:ss", Locale("ar")).format(Date())
+                1 -> "✧  " + SimpleDateFormat("HH:mm", Locale("ru")).format(Date()) + "  ✧"
+                2 -> SimpleDateFormat("HH:mm:ss", Locale("ru")).format(Date())
+                else -> "۞  " + SimpleDateFormat("HH:mm", Locale("ru")).format(Date()) + "  ۞"
+            }
             if (::prayerText.isInitialized) updateNextPrayer()
             handler.postDelayed(this, 1000)
         }
@@ -172,6 +179,7 @@ class MainActivity : Activity() {
                 runOnUiThread {
                     if (result.size == 5) {
                         prayerTimes = result
+                        result.forEach { (key, value) -> prefs.edit().putString("prayer_$key", value).apply() }
                         statusText.text = "Расписание ДУМ ЧР • Грозный • UTC+3"
                         updateNextPrayer()
                         PrayerAlarm.scheduleNext(this)
@@ -251,23 +259,22 @@ object PrayerAlarm {
     private const val ID = 7511
     fun scheduleNext(context: Context) {
         if (!context.getSharedPreferences("ramadan", Context.MODE_PRIVATE).getBoolean("adhan_enabled", true)) return
-        val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val times = try {
-            val conn = URL("https://assolat.ru/api/namaz/today?city=grozny").openConnection() as HttpURLConnection
-            conn.connectTimeout = 6000; conn.readTimeout = 6000
-            val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() }); conn.disconnect()
-            listOf("fajr","dhuhr","asr","maghrib","isha").mapNotNull { key -> json.optString(key).takeIf { it.length >= 5 } }
-        } catch (_: Exception) { emptyList() }
+        val prefs = context.getSharedPreferences("ramadan", Context.MODE_PRIVATE)
+        val times = listOf("fajr","dhuhr","asr","maghrib","isha").mapNotNull { prefs.getString("prayer_$it", null) }
         val now = Calendar.getInstance(TimeZone.getTimeZone("Europe/Moscow"))
         val next = times.mapNotNull { value ->
             try {
-                val parts = value.split(":"); Calendar.getInstance(TimeZone.getTimeZone("Europe/Moscow")).apply {
-                    set(Calendar.HOUR_OF_DAY, parts[0].toInt()); set(Calendar.MINUTE, parts[1].take(2).toInt()); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                val parts = value.split(":")
+                Calendar.getInstance(TimeZone.getTimeZone("Europe/Moscow")).apply {
+                    set(Calendar.HOUR_OF_DAY, parts[0].toInt())
+                    set(Calendar.MINUTE, parts[1].take(2).toInt())
+                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
                     if (timeInMillis <= now.timeInMillis) add(Calendar.DAY_OF_YEAR, 1)
                 }
             } catch (_: Exception) { null }
         }.minByOrNull { it.timeInMillis } ?: return
         val intent = PendingIntent.getBroadcast(context, ID, Intent(context, AdhanAlarmReceiver::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         if (Build.VERSION.SDK_INT >= 23) alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.timeInMillis, intent)
         else alarm.set(AlarmManager.RTC_WAKEUP, next.timeInMillis, intent)
     }
@@ -280,8 +287,15 @@ object PrayerAlarm {
 class AdhanAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         if (context.getSharedPreferences("ramadan", Context.MODE_PRIVATE).getBoolean("adhan_enabled", true))
-            context.startService(Intent(context, AdhanPlaybackService::class.java))
+            if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(Intent(context, AdhanPlaybackService::class.java))
+            else context.startService(Intent(context, AdhanPlaybackService::class.java))
         PrayerAlarm.scheduleNext(context)
+    }
+}
+
+class RamadanBootReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent?) {
+        if (intent?.action == Intent.ACTION_BOOT_COMPLETED) PrayerAlarm.scheduleNext(context)
     }
 }
 
@@ -290,6 +304,15 @@ class AdhanPlaybackService : Service() {
     override fun onBind(intent: Intent?) = null
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         try {
+            val channelId = "ramadan_adhan"
+            if (Build.VERSION.SDK_INT >= 26) {
+                val manager = getSystemService(NotificationManager::class.java)
+                manager.createNotificationChannel(NotificationChannel(channelId, "Азан", NotificationManager.IMPORTANCE_LOW))
+            }
+            val notification = if (Build.VERSION.SDK_INT >= 26)
+                Notification.Builder(this, channelId).setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle("Время молитвы").setContentText("Звучит азан").build()
+            else Notification.Builder(this).setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle("Время молитвы").setContentText("Звучит азан").build()
+            startForeground(7512, notification)
             player?.release()
             val id = resources.getIdentifier("adhan", "raw", packageName)
             if (id != 0) {
@@ -301,5 +324,5 @@ class AdhanPlaybackService : Service() {
         } catch (_: Exception) { stopSelf() }
         return START_NOT_STICKY
     }
-    override fun onDestroy() { player?.release(); player = null; super.onDestroy() }
+    override fun onDestroy() { player?.release(); player = null; if (Build.VERSION.SDK_INT >= 24) stopForeground(STOP_FOREGROUND_REMOVE) else @Suppress("DEPRECATION") stopForeground(true); super.onDestroy() }
 }
