@@ -15,3 +15,6 @@ GitHub Actions builds both APK variants on pushes to `ramadan-islamic-launcher`.
 
 ## Important validation
 This is the first implementation build. Verify the API response and prayer schedule against the official DUM CHR timetable and local mosque. Android TV background process / alarm behavior varies by firmware and must be tested on the target TCL/Union TV. Alarm scheduling uses Android's inexact-while-idle API to avoid requiring the user to grant special exact-alarm access.
+
+
+Latest integration checkpoint: the adhan playback service is declared as a foreground service and the alarm is restored after reboot. The phone and TV variants are built from the current branch head.
