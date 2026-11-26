@@ -32,6 +32,30 @@ jobs:
           mkdir -p app/src/main/res/raw
           curl -fL --retry 3 "https://commons.wikimedia.org/wiki/Special:Redirect/file/Adhan.ogg" -o app/src/main/res/raw/adhan.ogg
           file app/src/main/res/raw/adhan.ogg
+      - name: Download Ramadan nasheed audio (Pixabay Content License)
+        run: |
+          mkdir -p app/src/main/res/raw
+          python - <<'PY'
+          import re, urllib.request, html
+          page = "https://pixabay.com/music/world-ramadhan-islamic-nasheed-307885/"
+          request = urllib.request.Request(page, headers={"User-Agent": "Mozilla/5.0"})
+          source = urllib.request.urlopen(request, timeout=30).read().decode("utf-8", "ignore")
+          source = source.replace("\\/", "/").replace("&amp;", "&")
+          matches = re.findall(r'https?://cdn\\.pixabay\\.com/audio/[^"\\\\ <>]+?\\.mp3(?:\\?[^"\\\\ <>]*)?', source)
+          if not matches:
+              matches = re.findall(r'//cdn\\.pixabay\\.com/audio/[^"\\\\ <>]+?\\.mp3(?:\\?[^"\\\\ <>]*)?', source)
+          if not matches:
+              raise SystemExit("Could not locate the official Pixabay MP3 asset in the track page")
+          audio_url = html.unescape(matches[0])
+          if audio_url.startswith("//"):
+              audio_url = "https:" + audio_url
+          req = urllib.request.Request(audio_url, headers={"User-Agent": "Mozilla/5.0", "Referer": page})
+          data = urllib.request.urlopen(req, timeout=60).read()
+          if len(data) < 10000 or not data[:3] == b"ID3":
+              raise SystemExit("Downloaded nasheed audio did not pass MP3 validation")
+          open("app/src/main/res/raw/nasheed.mp3", "wb").write(data)
+          print("Downloaded Ramadan nasheed:", len(data), "bytes")
+          PY
       - name: Build phone and TV variants
         run: gradle --no-daemon assemblePhoneDebug assembleTvDebug
       - name: Upload phone APK
