@@ -4,6 +4,12 @@ import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import android.net.wifi.WifiManager
+import android.os.Build
+import android.provider.Settings
 import android.content.pm.PackageManager
 import android.graphics.Canvas
 import android.graphics.Color
@@ -57,6 +63,11 @@ class MainActivity : Activity() {
     private var ttsReady = false
     private val musicPlayer by lazy { JingleMusicPlayer(applicationContext) }
     private var iceClock: IceClockView? = null
+    private var wifiQuickButton: TextView? = null
+    private var wifiReceiverRegistered = false
+    private val wifiStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) { refreshWifiQuickButton() }
+    }
     private val newYearCheck = object : Runnable {
         override fun run() {
             checkNewYearMoment()
@@ -82,6 +93,28 @@ class MainActivity : Activity() {
         if (wallpaperPrefs.getBoolean("jingle_music_enabled", true)) musicPlayer.start()
     }
 
+    override fun onStart() {
+        super.onStart()
+        val filter = IntentFilter(WifiManager.WIFI_STATE_CHANGED_ACTION)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(wifiStateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(wifiStateReceiver, filter)
+        }
+        wifiReceiverRegistered = true
+        refreshWifiQuickButton()
+    }
+
+    override fun onStop() {
+        if (wifiReceiverRegistered) {
+            try { unregisterReceiver(wifiStateReceiver) } catch (_: Exception) { }
+            wifiReceiverRegistered = false
+        }
+        super.onStop()
+    }
+
+
     override fun onPause() {
         newYearHandler.removeCallbacks(newYearCheck)
         musicPlayer.pause()
@@ -99,12 +132,14 @@ class MainActivity : Activity() {
 
     private fun checkNewYearMoment() {
         val now = Calendar.getInstance()
-        val isNewYear = now.get(Calendar.MONTH) == Calendar.JANUARY &&
-            now.get(Calendar.DAY_OF_MONTH) == 1 && now.get(Calendar.HOUR_OF_DAY) == 0 &&
-            now.get(Calendar.MINUTE) == 0 && now.get(Calendar.SECOND) <= 20
-        val year = now.get(Calendar.YEAR)
-        val key = "new_year_celebration_$year"
-        if (isNewYear && wallpaperPrefs.getBoolean("new_year_enabled", true) && !wallpaperPrefs.getBoolean(key, false)) {
+        // Run at 12:00 local TV time on 31 December 2026.
+        val isNewYearMoment = now.get(Calendar.YEAR) == 2026 &&
+            now.get(Calendar.MONTH) == Calendar.DECEMBER &&
+            now.get(Calendar.DAY_OF_MONTH) == 31 &&
+            now.get(Calendar.HOUR_OF_DAY) == 12 &&
+            now.get(Calendar.MINUTE) == 0
+        val key = "new_year_celebration_2026"
+        if (isNewYearMoment && wallpaperPrefs.getBoolean("new_year_enabled", true) && !wallpaperPrefs.getBoolean(key, false)) {
             wallpaperPrefs.edit().putBoolean(key, true).apply()
             startNewYearCelebration()
         }
@@ -221,6 +256,27 @@ class MainActivity : Activity() {
         header.addView(label("❄  $date  ❄", 13f, white, true))
         iceClock = IceClockView(this, wallpaperPrefs.getInt("ice_clock_skin", 0))
         header.addView(iceClock, LinearLayout.LayoutParams(dp(66), dp(66)).apply { leftMargin = dp(8) })
+        wifiQuickButton = label("Wi-Fi\\n…", 9f, white, true).apply {
+            gravity = Gravity.CENTER
+            textAlignment = View.TEXT_ALIGNMENT_CENTER
+            isFocusable = true
+            isClickable = true
+            contentDescription = "Управление Wi-Fi: включить или выключить"
+            background = shape(0xAA315A50.toInt(), 26, gold)
+            setPadding(dp(3), dp(3), dp(3), dp(3))
+            setOnClickListener { toggleWifi() }
+        }
+        header.addView(wifiQuickButton, LinearLayout.LayoutParams(dp(54), dp(54)).apply { leftMargin = dp(7) })
+        val settingsButton = label("⚙", 23f, gold, true).apply {
+            gravity = Gravity.CENTER
+            isFocusable = true
+            isClickable = true
+            contentDescription = "Открыть системные настройки телевизора"
+            background = shape(0xAA59351F.toInt(), 26, gold)
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            setOnClickListener { openTvSettings() }
+        }
+        header.addView(settingsButton, LinearLayout.LayoutParams(dp(54), dp(54)).apply { leftMargin = dp(7) })
         shell.addView(header)
 
         val garland = TextView(this).apply {
@@ -247,6 +303,7 @@ class MainActivity : Activity() {
         val scroller = ScrollView(this).apply { isFillViewport = true; clipToPadding = false; addView(content) }
         shell.addView(scroller, LinearLayout.LayoutParams(-1, 0, 1f))
 
+        // Keep snowfall above the wallpaper but behind controls so remote navigation stays reliable.
         snow = SnowView()
         frame.addView(snow, FrameLayout.LayoutParams(-1, -1))
         setContentView(frame)
@@ -410,6 +467,36 @@ class MainActivity : Activity() {
                 wallpaperPrefs.edit().putStringSet("home_card_sections", current).apply()
                 render()
             }.setNegativeButton("Отмена", null).show()
+    }
+
+    private fun refreshWifiQuickButton() {
+        val manager = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+        val enabled = try { manager?.isWifiEnabled == true } catch (_: Exception) { false }
+        wifiQuickButton?.text = if (enabled) "Wi-Fi\\nВКЛ" else "Wi-Fi\\nВЫКЛ"
+        wifiQuickButton?.contentDescription = if (enabled) "Wi-Fi включён. Нажмите, чтобы выключить" else "Wi-Fi выключен. Нажмите, чтобы включить"
+    }
+
+    @Suppress("DEPRECATION")
+    private fun toggleWifi() {
+        val manager = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+        try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && manager != null) {
+                manager.isWifiEnabled = !manager.isWifiEnabled
+                refreshWifiQuickButton()
+            } else {
+                val panel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) Settings.Panel.ACTION_WIFI else Settings.ACTION_WIFI_SETTINGS
+                startActivity(Intent(panel))
+            }
+        } catch (_: Exception) {
+            try { startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) } catch (_: Exception) { }
+        }
+    }
+
+    private fun openTvSettings() {
+        try { startActivity(Intent(Settings.ACTION_SETTINGS)) }
+        catch (_: Exception) {
+            try { startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) } catch (_: Exception) { }
+        }
     }
 
     private fun chooseClockSkin() {
@@ -628,8 +715,8 @@ class MainActivity : Activity() {
 
     private inner class SnowView : View(this@MainActivity) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private val flakes = List(62) {
-            SnowFlake(Random.nextFloat(), Random.nextFloat(), 1.2f + Random.nextFloat() * 2.6f, 0.0015f + Random.nextFloat() * 0.0035f, (Random.nextFloat() - 0.5f) * 0.0008f)
+        private val flakes = List(115) {
+            SnowFlake(Random.nextFloat(), Random.nextFloat(), 1.8f + Random.nextFloat() * 3.2f, 0.0022f + Random.nextFloat() * 0.0040f, (Random.nextFloat() - 0.5f) * 0.0008f)
         }
         private val animator = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 16000L
@@ -665,8 +752,8 @@ class MainActivity : Activity() {
 
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
-            paint.color = 0x99FFFFFF.toInt()
-            flakes.forEach { f -> canvas.drawCircle(f.x * width, f.y * height, dp(f.radius.toInt().coerceAtLeast(1)).toFloat(), paint) }
+            paint.color = 0xDDF7FCFF.toInt()
+            flakes.forEach { f -> canvas.drawCircle(f.x * width, f.y * height, dp(f.radius.toInt().coerceAtLeast(2)).toFloat(), paint) }
         }
     }
 }
