@@ -245,6 +245,9 @@ class MainActivity : Activity() {
             setPadding(dp(16), dp(10), dp(16), dp(12))
             setBackgroundColor(Color.TRANSPARENT)
         }
+        // Snow layer sits between the wallpaper and the interactive launcher controls.
+        snow = SnowView()
+        frame.addView(snow, FrameLayout.LayoutParams(-1, -1))
         frame.addView(shell, FrameLayout.LayoutParams(-1, -1))
 
         val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
@@ -303,9 +306,6 @@ class MainActivity : Activity() {
         val scroller = ScrollView(this).apply { isFillViewport = true; clipToPadding = false; addView(content) }
         shell.addView(scroller, LinearLayout.LayoutParams(-1, 0, 1f))
 
-        // Keep snowfall above the wallpaper but behind controls so remote navigation stays reliable.
-        snow = SnowView()
-        frame.addView(snow, FrameLayout.LayoutParams(-1, -1))
         setContentView(frame)
         render()
     }
