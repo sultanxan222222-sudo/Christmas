@@ -399,7 +399,7 @@ class MainActivity : Activity() {
     }
 
     private fun loadPrayerTimes() {
-        statusText.text = "Получаем официальное расписание ДУМ ЧР…"
+        if (::statusText.isInitialized) statusText.text = "Получаем расписание намазов для Грозного…"
         thread {
             try {
                 val conn = URL("https://assolat.ru/api/namaz/today?city=grozny").openConnection() as HttpURLConnection
@@ -413,19 +413,19 @@ class MainActivity : Activity() {
                     if (result.size == 5) {
                         prayerTimes = result
                         result.forEach { (key, value) -> prefs.edit().putString("prayer_$key", value).apply() }
-                        statusText.text = "Расписание ДУМ ЧР • Грозный • UTC+3"
+                        if (::statusText.isInitialized) statusText.text = "Расписание • Грозный • UTC+3"
                         updateNextPrayer()
                         PrayerAlarm.scheduleNext(this)
-                    } else statusText.text = "Не удалось прочитать расписание. Проверьте подключение."
+                    } else if (::statusText.isInitialized) statusText.text = "Не удалось прочитать расписание. Проверьте подключение."
                 }
             } catch (_: Exception) {
-                runOnUiThread { statusText.text = "Нет связи с расписанием. Повторите позже." }
+                runOnUiThread { if (::statusText.isInitialized) statusText.text = "Нет связи с расписанием. Повторите позже." }
             }
         }
     }
 
     private fun updateNextPrayer() {
-        if (prayerTimes.isEmpty()) return
+        if (!::prayerText.isInitialized || prayerTimes.isEmpty()) return
         val now = timeFormat.format(Date())
         val next = prayerNames.keys.firstOrNull { (prayerTimes[it] ?: "99:99") > now }
         val line = if (next != null) "Следующий намаз: ${prayerNames[next]} • ${prayerTimes[next]}"
