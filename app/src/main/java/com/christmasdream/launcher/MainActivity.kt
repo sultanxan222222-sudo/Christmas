@@ -3,20 +3,27 @@ package com.christmasdream.launcher
 import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.Intent
 import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager
 import android.net.wifi.WifiManager
+import android.os.Build
+import android.provider.Settings
+import android.content.pm.PackageManager
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
+import android.os.Handler
+import android.os.Looper
+import android.speech.tts.TextToSpeech
+import android.media.AudioTrack
+import android.media.AudioFormat
+import android.media.AudioManager
+import java.util.Calendar
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
@@ -49,11 +56,22 @@ class MainActivity : Activity() {
     private lateinit var wallpaperView: ImageView
     private val wallpaperPrefs by lazy { getSharedPreferences("christmas_dream_settings", MODE_PRIVATE) }
     private val wallpaperRequestCode = 4107
+    private lateinit var rootFrame: FrameLayout
+    private val newYearHandler = Handler(Looper.getMainLooper())
+    private var newYearOverlay: NewYearCelebrationView? = null
+    private var santaTts: TextToSpeech? = null
+    private var ttsReady = false
+    private val musicPlayer by lazy { JingleMusicPlayer(applicationContext) }
+    private var iceClock: IceClockView? = null
     private var wifiQuickButton: TextView? = null
     private var wifiReceiverRegistered = false
     private val wifiStateReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            refreshWifiQuickButton()
+        override fun onReceive(context: Context?, intent: Intent?) { refreshWifiQuickButton() }
+    }
+    private val newYearCheck = object : Runnable {
+        override fun run() {
+            checkNewYearMoment()
+            if (!isFinishing) newYearHandler.postDelayed(this, 500L)
         }
     }
 
@@ -62,6 +80,17 @@ class MainActivity : Activity() {
         window.statusBarColor = deepRed
         window.navigationBarColor = deepRed
         buildUi()
+        santaTts = TextToSpeech(this) { status ->
+            ttsReady = status == TextToSpeech.SUCCESS
+            if (ttsReady) santaTts?.language = Locale("ru", "RU")
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        newYearHandler.removeCallbacks(newYearCheck)
+        newYearHandler.post(newYearCheck)
+        if (wallpaperPrefs.getBoolean("jingle_music_enabled", true)) musicPlayer.start()
     }
 
     override fun onStart() {
@@ -83,6 +112,87 @@ class MainActivity : Activity() {
             wifiReceiverRegistered = false
         }
         super.onStop()
+    }
+
+
+    override fun onPause() {
+        newYearHandler.removeCallbacks(newYearCheck)
+        musicPlayer.pause()
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        newYearHandler.removeCallbacks(newYearCheck)
+        santaTts?.stop()
+        santaTts?.shutdown()
+        santaTts = null
+        musicPlayer.release()
+        super.onDestroy()
+    }
+
+    private fun checkNewYearMoment() {
+        val now = Calendar.getInstance()
+        // Run at 12:00 local TV time on 31 December 2026.
+        val isNewYearMoment = now.get(Calendar.YEAR) == 2026 &&
+            now.get(Calendar.MONTH) == Calendar.DECEMBER &&
+            now.get(Calendar.DAY_OF_MONTH) == 31 &&
+            now.get(Calendar.HOUR_OF_DAY) == 12 &&
+            now.get(Calendar.MINUTE) == 0
+        val key = "new_year_celebration_2026"
+        if (isNewYearMoment && wallpaperPrefs.getBoolean("new_year_enabled", true) && !wallpaperPrefs.getBoolean(key, false)) {
+            wallpaperPrefs.edit().putBoolean(key, true).apply()
+            startNewYearCelebration()
+        }
+    }
+
+    private fun playIceBell(durationMs: Int) {
+        try {
+            val sampleRate = 22050
+            val count = sampleRate * durationMs / 1000
+            val pcm = ShortArray(count) { index ->
+                val t = index.toDouble() / sampleRate
+                val decay = kotlin.math.exp(-4.2 * t)
+                val fundamental = kotlin.math.sin(2.0 * Math.PI * 880.0 * t)
+                val overtone = 0.52 * kotlin.math.sin(2.0 * Math.PI * 1320.0 * t)
+                val shimmer = 0.24 * kotlin.math.sin(2.0 * Math.PI * 1760.0 * t)
+                ((fundamental + overtone + shimmer) / 1.76 * decay * 0.48 * Short.MAX_VALUE).toInt().toShort()
+            }
+            val track = AudioTrack(
+                AudioManager.STREAM_MUSIC, sampleRate, AudioFormat.CHANNEL_OUT_MONO,
+                AudioFormat.ENCODING_PCM_16BIT, pcm.size * 2, AudioTrack.MODE_STATIC
+            )
+            track.write(pcm, 0, pcm.size)
+            track.play()
+            newYearHandler.postDelayed({
+                try { track.stop() } catch (_: Exception) { }
+                track.release()
+            }, durationMs.toLong() + 250L)
+        } catch (_: Exception) { }
+    }
+
+    private fun startNewYearCelebration() {
+        if (newYearOverlay != null) return
+        newYearOverlay = NewYearCelebrationView(this)
+        rootFrame.addView(newYearOverlay, FrameLayout.LayoutParams(-1, -1))
+        newYearOverlay?.bringToFront()
+        // Three distinct bell chimes, followed by a cheerful spoken greeting.
+        newYearHandler.postDelayed({ playIceBell(520) }, 0L)
+        newYearHandler.postDelayed({ playIceBell(520) }, 850L)
+        newYearHandler.postDelayed({ playIceBell(760) }, 1700L)
+        newYearHandler.postDelayed({
+            if (ttsReady) {
+                val params = android.os.Bundle().apply {
+                    putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 0.82f)
+                }
+                santaTts?.setPitch(0.78f)
+                santaTts?.setSpeechRate(0.88f)
+                santaTts?.speak("Хо-хо-хо! С Новым годом!", TextToSpeech.QUEUE_FLUSH, params, "christmas_new_year_greeting")
+            }
+        }, 2600L)
+        newYearHandler.postDelayed({
+            newYearOverlay?.let { rootFrame.removeView(it) }
+            newYearOverlay = null
+        }, 20_000L)
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
@@ -116,6 +226,7 @@ class MainActivity : Activity() {
 
     private fun buildUi() {
         val frame = FrameLayout(this)
+        rootFrame = frame
         wallpaperView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             contentDescription = "Фоновое изображение лаунчера"
@@ -142,7 +253,9 @@ class MainActivity : Activity() {
         brand.addView(label("РОЖДЕСТВО НАЧИНАЕТСЯ ДОМА", 9f, ivory, true))
         header.addView(brand)
         val date = SimpleDateFormat("d MMMM", Locale("ru")).format(Date())
-        header.addView(label("❄  $date  ❄", 12f, white, true))
+        header.addView(label("❄  $date  ❄", 13f, white, true))
+        iceClock = IceClockView(this, wallpaperPrefs.getInt("ice_clock_skin", 0))
+        header.addView(iceClock, LinearLayout.LayoutParams(dp(66), dp(66)).apply { leftMargin = dp(8) })
         wifiQuickButton = label("Wi-Fi\n…", 9f, white, true).apply {
             gravity = Gravity.CENTER
             textAlignment = View.TEXT_ALIGNMENT_CENTER
@@ -152,35 +265,18 @@ class MainActivity : Activity() {
             background = shape(0xAA315A50.toInt(), 26, gold)
             setPadding(dp(3), dp(3), dp(3), dp(3))
             setOnClickListener { toggleWifi() }
-            setOnFocusChangeListener { view, focused ->
-                view.background = shape(
-                    if (focused) 0xFF39775F.toInt() else 0xAA315A50.toInt(),
-                    26,
-                    if (focused) white else gold
-                )
-            }
         }
-        header.addView(wifiQuickButton, LinearLayout.LayoutParams(dp(54), dp(54)).apply {
-            leftMargin = dp(6)
-        })
+        header.addView(wifiQuickButton, LinearLayout.LayoutParams(dp(54), dp(54)).apply { leftMargin = dp(7) })
         val settingsButton = label("⚙", 23f, gold, true).apply {
             gravity = Gravity.CENTER
             isFocusable = true
             isClickable = true
             contentDescription = "Открыть системные настройки телевизора"
             background = shape(0xAA59351F.toInt(), 26, gold)
+            setPadding(dp(4), dp(4), dp(4), dp(4))
             setOnClickListener { openTvSettings() }
-            setOnFocusChangeListener { view, focused ->
-                view.background = shape(
-                    if (focused) 0xFF825126.toInt() else 0xAA59351F.toInt(),
-                    26,
-                    if (focused) white else gold
-                )
-            }
         }
-        header.addView(settingsButton, LinearLayout.LayoutParams(dp(54), dp(54)).apply {
-            leftMargin = dp(7)
-        })
+        header.addView(settingsButton, LinearLayout.LayoutParams(dp(54), dp(54)).apply { leftMargin = dp(7) })
         shell.addView(header)
 
         val garland = TextView(this).apply {
@@ -207,6 +303,7 @@ class MainActivity : Activity() {
         val scroller = ScrollView(this).apply { isFillViewport = true; clipToPadding = false; addView(content) }
         shell.addView(scroller, LinearLayout.LayoutParams(-1, 0, 1f))
 
+        // Foreground snowfall is transparent and non-clickable; remote controls pass through.
         snow = SnowView()
         frame.addView(snow, FrameLayout.LayoutParams(-1, -1))
         setContentView(frame)
@@ -264,8 +361,8 @@ class MainActivity : Activity() {
                 intArrayOf(0xF00B101B.toInt(), 0xB80B101B.toInt(), 0x000B101B)
             )
         }
-        copy.addView(label("ЗИМА, КОТОРАЯ\\nОЖИВАЕТ ДОМА", if (wide) 25f else 19f, white, true))
-        copy.addView(label("Пусть каждый вечер будет\\nнаполнен теплом и чудом.", 12f, Color.rgb(255, 224, 185), true).apply {
+        copy.addView(label("ЗИМА, КОТОРАЯ\nОЖИВАЕТ ДОМА", if (wide) 25f else 19f, white, true))
+        copy.addView(label("Пусть каждый вечер будет\nнаполнен теплом и чудом.", 12f, Color.rgb(255, 224, 185), true).apply {
             setPadding(0, dp(7), 0, dp(10))
         })
         copy.addView(label("✦  ДОБРО ПОЖАЛОВАТЬ  ✦", 9f, deepRed, true).apply {
@@ -315,8 +412,114 @@ class MainActivity : Activity() {
             if (group.size < columns) row.addView(View(this), LinearLayout.LayoutParams(0, dp(116), (columns - group.size).toFloat()))
             content.addView(row)
         }
+        heading("МОИ КАРТОЧКИ")
+        content.addView(label("Добавляй приложения на главный экран или убирай карточки без удаления самих приложений.", 11f, ivory))
+        actionCard("＋  Добавить карточку приложения") { manageHomeCards(true) }
+        actionCard("−  Удалить карточку приложения") { manageHomeCards(false) }
+        actionCard("＋  Добавить карточку раздела") { manageHomeSections(true) }
+        actionCard("−  Удалить карточку раздела") { manageHomeSections(false) }
+        val pinned = pinnedApps()
+        if (pinned.isNotEmpty()) appGrid(pinned)
+        val pinnedSections = wallpaperPrefs.getStringSet("home_card_sections", emptySet()) ?: emptySet()
+        pinnedSections.forEach { section -> actionCard("✦  $section") { selected = section; render() } }
         heading("БЫСТРЫЙ ДОСТУП")
         appGrid(installedApps().take(if (wide) 12 else 8))
+    }
+
+    private fun pinnedApps(): List<android.content.pm.ResolveInfo> {
+        val pins = wallpaperPrefs.getStringSet("home_card_packages", emptySet()) ?: emptySet()
+        return installedApps().filter { it.activityInfo.packageName in pins }
+    }
+
+    private fun manageHomeCards(add: Boolean) {
+        val apps = installedApps()
+        if (apps.isEmpty()) return
+        val current = (wallpaperPrefs.getStringSet("home_card_packages", emptySet()) ?: emptySet()).toMutableSet()
+        val candidates = if (add) apps.filter { it.activityInfo.packageName !in current } else apps.filter { it.activityInfo.packageName in current }
+        if (candidates.isEmpty()) {
+            android.widget.Toast.makeText(this, if (add) "Все доступные приложения уже добавлены" else "На главном экране пока нет добавленных карточек", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        val labels = candidates.map { it.loadLabel(packageManager).toString() }.toTypedArray()
+        AlertDialog.Builder(this).setTitle(if (add) "Добавить карточку" else "Удалить карточку с главного экрана")
+            .setItems(labels) { _, which ->
+                val pkg = candidates[which].activityInfo.packageName
+                if (add) current.add(pkg) else current.remove(pkg)
+                wallpaperPrefs.edit().putStringSet("home_card_packages", current).apply()
+                render()
+                android.widget.Toast.makeText(this, if (add) "Карточка добавлена" else "Карточка убрана. Приложение осталось установленным.", android.widget.Toast.LENGTH_SHORT).show()
+            }.setNegativeButton("Отмена", null).show()
+    }
+
+    private fun manageHomeSections(add: Boolean) {
+        val available = sections.filter { it != "Главная" }
+        val current = (wallpaperPrefs.getStringSet("home_card_sections", emptySet()) ?: emptySet()).toMutableSet()
+        val candidates = if (add) available.filter { it !in current } else available.filter { it in current }
+        if (candidates.isEmpty()) {
+            android.widget.Toast.makeText(this, if (add) "Все разделы уже добавлены" else "Добавленных разделов нет", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle(if (add) "Добавить карточку раздела" else "Убрать карточку раздела")
+            .setItems(candidates.toTypedArray()) { _, which ->
+                val section = candidates[which]
+                if (add) current.add(section) else current.remove(section)
+                wallpaperPrefs.edit().putStringSet("home_card_sections", current).apply()
+                render()
+            }.setNegativeButton("Отмена", null).show()
+    }
+
+    private fun refreshWifiQuickButton() {
+        val manager = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+        val enabled = try { manager?.isWifiEnabled == true } catch (_: Exception) { false }
+        wifiQuickButton?.text = if (enabled) "Wi-Fi\nВКЛ" else "Wi-Fi\nВЫКЛ"
+        wifiQuickButton?.contentDescription = if (enabled) "Wi-Fi включён. Нажмите, чтобы выключить" else "Wi-Fi выключен. Нажмите, чтобы включить"
+    }
+
+    @Suppress("DEPRECATION")
+    private fun toggleWifi() {
+        val manager = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+        try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && manager != null) {
+                manager.isWifiEnabled = !manager.isWifiEnabled
+                refreshWifiQuickButton()
+            } else {
+                val panel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) Settings.Panel.ACTION_WIFI else Settings.ACTION_WIFI_SETTINGS
+                startActivity(Intent(panel))
+            }
+        } catch (_: Exception) {
+            try { startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) } catch (_: Exception) { }
+        }
+    }
+
+    private fun openTvSettings() {
+        try { startActivity(Intent(Settings.ACTION_SETTINGS)) }
+        catch (_: Exception) {
+            try { startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) } catch (_: Exception) { }
+        }
+    }
+
+    private fun chooseClockSkin() {
+        val names = arrayOf("Красный лёд — красный циферблат и голубые стрелки", "Снежный кристалл — белый лёд и серебро", "Ледяной механизм — красное стекло и синие шестерёнки", "Волшебные часы — морозное сияние")
+        AlertDialog.Builder(this).setTitle("Дизайн часов").setSingleChoiceItems(names, wallpaperPrefs.getInt("ice_clock_skin", 0)) { dialog, which ->
+            wallpaperPrefs.edit().putInt("ice_clock_skin", which).apply()
+            iceClock?.skin = which
+            iceClock?.invalidate()
+            dialog.dismiss()
+        }.setNegativeButton("Отмена", null).show()
+    }
+
+    private fun toggleMusic() {
+        val enabled = !wallpaperPrefs.getBoolean("jingle_music_enabled", true)
+        wallpaperPrefs.edit().putBoolean("jingle_music_enabled", enabled).apply()
+        if (enabled && !isFinishing) musicPlayer.start() else musicPlayer.stop()
+        render()
+    }
+
+    private fun toggleNewYear() {
+        val enabled = !wallpaperPrefs.getBoolean("new_year_enabled", true)
+        wallpaperPrefs.edit().putBoolean("new_year_enabled", enabled).apply()
+        render()
     }
 
     private fun appSection(section: String) {
@@ -423,90 +626,13 @@ class MainActivity : Activity() {
         info.background = shape(0xDDF8F3EA.toInt(), 22, 0xAAFFFFFF.toInt())
         info.setPadding(dp(18), dp(18), dp(18), dp(18))
         content.addView(info)
-        actionCard("⚙   Открыть системные настройки телевизора") { openTvSettings() }
-        actionCard("⌁   Настройки Wi-Fi") { openWifiSettings() }
-        actionCard("🔊   Настройки звука") { openSettingsAction(Settings.ACTION_SOUND_SETTINGS) }
-        actionCard("🖥   Настройки изображения") { openSettingsAction(Settings.ACTION_DISPLAY_SETTINGS) }
-        actionCard("▦   Управление приложениями") { openSettingsAction(Settings.ACTION_APPLICATION_SETTINGS) }
+        actionCard("🕰   Выбрать дизайн ледяных часов") { chooseClockSkin() }
+        actionCard("♫   Фоновая музыка: " + if (wallpaperPrefs.getBoolean("jingle_music_enabled", true)) "ВКЛ" else "ВЫКЛ") { toggleMusic() }
+        actionCard("🎆   Новогодний сюрприз: " + if (wallpaperPrefs.getBoolean("new_year_enabled", true)) "ВКЛ" else "ВЫКЛ") { toggleNewYear() }
         actionCard("🖼   Выбрать свой фон") { chooseWallpaper() }
         actionCard("↺   Вернуть праздничный фон") { resetWallpaper() }
         actionCard("↻   Обновить список приложений") { render() }
         actionCard("⌂   Вернуться к штатному экрану TCL") { returnToStock() }
-    }
-
-    private fun refreshWifiQuickButton() {
-        val button = wifiQuickButton ?: return
-        val enabled = try {
-            (applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager).isWifiEnabled
-        } catch (_: Exception) {
-            false
-        }
-        button.text = if (enabled) "Wi-Fi\nВКЛ" else "Wi-Fi\nВЫКЛ"
-        button.contentDescription = if (enabled) {
-            "Wi-Fi включён. Нажмите, чтобы выключить"
-        } else {
-            "Wi-Fi выключен. Нажмите, чтобы включить"
-        }
-        button.background = shape(
-            if (enabled) 0xAA315A50.toInt() else 0xAA51313B.toInt(),
-            26,
-            gold
-        )
-    }
-
-    @Suppress("DEPRECATION")
-    private fun toggleWifi() {
-        try {
-            val manager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-            val targetEnabled = !manager.isWifiEnabled
-            val accepted = manager.setWifiEnabled(targetEnabled)
-            if (accepted) {
-                android.widget.Toast.makeText(
-                    this,
-                    if (targetEnabled) "Запрос на включение Wi-Fi отправлен" else "Запрос на выключение Wi-Fi отправлен",
-                    android.widget.Toast.LENGTH_SHORT
-                ).show()
-            } else {
-                openWifiSettings()
-            }
-        } catch (_: SecurityException) {
-            openWifiSettings()
-        } catch (_: Exception) {
-            openWifiSettings()
-        }
-    }
-
-    private fun openWifiSettings() {
-        try {
-            val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                Intent(Settings.Panel.ACTION_WIFI)
-            } else {
-                Intent(Settings.ACTION_WIFI_SETTINGS)
-            }
-            startActivity(intent)
-        } catch (_: Exception) {
-            try {
-                startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
-            } catch (_: Exception) {
-                android.widget.Toast.makeText(this, "Не удалось открыть настройки Wi-Fi", android.widget.Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    private fun openTvSettings() {
-        try {
-            startActivity(Intent(Settings.ACTION_SETTINGS))
-        } catch (_: Exception) {
-            android.widget.Toast.makeText(this, "Не удалось открыть системные настройки телевизора", android.widget.Toast.LENGTH_LONG).show()
-        }
-    }
-
-    private fun openSettingsAction(action: String) {
-        try {
-            startActivity(Intent(action))
-        } catch (_: Exception) {
-            openTvSettings()
-        }
     }
 
     private fun setDefaultWallpaper() {
@@ -589,8 +715,8 @@ class MainActivity : Activity() {
 
     private inner class SnowView : View(this@MainActivity) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private val flakes = List(62) {
-            SnowFlake(Random.nextFloat(), Random.nextFloat(), 1.2f + Random.nextFloat() * 2.6f, 0.0015f + Random.nextFloat() * 0.0035f, (Random.nextFloat() - 0.5f) * 0.0008f)
+        private val flakes = List(115) {
+            SnowFlake(Random.nextFloat(), Random.nextFloat(), 1.8f + Random.nextFloat() * 3.2f, 0.0022f + Random.nextFloat() * 0.0040f, (Random.nextFloat() - 0.5f) * 0.0008f)
         }
         private val animator = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 16000L
@@ -626,8 +752,8 @@ class MainActivity : Activity() {
 
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
-            paint.color = 0x99FFFFFF.toInt()
-            flakes.forEach { f -> canvas.drawCircle(f.x * width, f.y * height, dp(f.radius.toInt().coerceAtLeast(1)).toFloat(), paint) }
+            paint.color = 0xDDF7FCFF.toInt()
+            flakes.forEach { f -> canvas.drawCircle(f.x * width, f.y * height, dp(f.radius.toInt().coerceAtLeast(2)).toFloat(), paint) }
         }
     }
 }
