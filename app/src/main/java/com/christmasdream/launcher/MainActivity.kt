@@ -209,10 +209,13 @@ class MainActivity : Activity() {
     private fun glass(radius: Int = 20, focused: Boolean = false): GradientDrawable =
         GradientDrawable(
             GradientDrawable.Orientation.TL_BR,
-            intArrayOf(0x663C4658, 0x55303A4B, 0x66302B3A)
+            if (focused)
+                intArrayOf(0xF56A2635.toInt(), 0xF0441D2B.toInt(), 0xF52A1725.toInt())
+            else
+                intArrayOf(0xD9362938.toInt(), 0xD02A2433.toInt(), 0xD51A202D.toInt())
         ).apply {
             cornerRadius = dp(radius).toFloat()
-            setStroke(dp(if (focused) 2 else 1), if (focused) gold else 0x88FFFFFF.toInt())
+            setStroke(dp(if (focused) 2 else 1), if (focused) 0xFFFFD98A.toInt() else 0x66E6C58F)
         }
 
     private fun label(value: String, size: Float, color: Int = white, bold: Boolean = false): TextView =
@@ -683,14 +686,44 @@ class MainActivity : Activity() {
     }
 
     private fun actionCard(value: String, action: () -> Unit) {
-        val v = label(value, 15f, red, true)
-        v.background = shape(white, 18, 0xFFFFDCA7.toInt())
-        v.setPadding(dp(16), dp(15), dp(16), dp(15))
-        v.isFocusable = true
-        v.setOnClickListener { action() }
-        v.setOnFocusChangeListener { view, focused -> view.background = shape(if (focused) Color.rgb(255, 224, 190) else white, 18, red) }
-        content.addView(v, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = premiumActionBackground(false)
+            setPadding(dp(17), dp(14), dp(17), dp(14))
+            isFocusable = true
+            isClickable = true
+            isFocusableInTouchMode = false
+            elevation = dp(3).toFloat()
+            contentDescription = value
+        }
+        val accent = View(this).apply {
+            background = shape(0xFFE7BD72.toInt(), 3, 0)
+        }
+        card.addView(accent, LinearLayout.LayoutParams(dp(3), dp(34)).apply { rightMargin = dp(14) })
+        card.addView(label(value, 14f, 0xFFFFEBD0.toInt(), true), LinearLayout.LayoutParams(0, -2, 1f))
+        card.addView(label("›", 27f, 0xFFE8C47F.toInt(), true))
+        card.setOnClickListener { action() }
+        card.setOnFocusChangeListener { view, focused ->
+            view.background = premiumActionBackground(focused)
+            view.animate().scaleX(if (focused) 1.015f else 1f).scaleY(if (focused) 1.015f else 1f)
+                .setDuration(130L).start()
+        }
+        content.addView(card, LinearLayout.LayoutParams(-1, -2).apply {
+            topMargin = dp(8)
+            bottomMargin = dp(2)
+        })
     }
+
+    private fun premiumActionBackground(focused: Boolean): GradientDrawable =
+        GradientDrawable(
+            GradientDrawable.Orientation.LEFT_RIGHT,
+            if (focused) intArrayOf(0xFFF4DFC0.toInt(), 0xFFE8C68D.toInt())
+            else intArrayOf(0xE63B2635.toInt(), 0xE625202D.toInt())
+        ).apply {
+            cornerRadius = dp(17).toFloat()
+            setStroke(dp(if (focused) 2 else 1), if (focused) 0xFFFFF0D4.toInt() else 0x77D9B77D)
+        }
 
     private fun returnToStock() {
         AlertDialog.Builder(this)
