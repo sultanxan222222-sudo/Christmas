@@ -10,8 +10,8 @@ android {
         applicationId = "com.christmasdream.launcher"
         minSdk = 23
         targetSdk = 28
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 4
+        versionName = "1.3.0"
     }
     flavorDimensions += "device"
     productFlavors {
