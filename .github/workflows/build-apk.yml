@@ -41,9 +41,9 @@ jobs:
           request = urllib.request.Request(page, headers={"User-Agent": "Mozilla/5.0"})
           source = urllib.request.urlopen(request, timeout=30).read().decode("utf-8", "ignore")
           source = source.replace("\\/", "/").replace("&amp;", "&")
-          matches = re.findall(r'https?://cdn\\.pixabay\\.com/audio/[^"\\\\ <>]+?\\.mp3(?:\\?[^"\\ <>]*)?', source)
+          matches = re.findall(r'https?://cdn\.pixabay\\.com/audio/[^"\\\\ <>]+?\.mp3(?:\?[^"\\ <>]*)?', source)
           if not matches:
-              matches = re.findall(r'//cdn\\.pixabay\\.com/audio/[^"\\\\ <>]+?\\.mp3(?:\\?[^"\\ <>]*)?', source)
+              matches = re.findall(r'//cdn\.pixabay\\.com/audio/[^"\\\\ <>]+?\.mp3(?:\?[^"\\ <>]*)?', source)
           if not matches:
               raise SystemExit("Could not locate the official Pixabay MP3 asset in the track page")
           audio_url = html.unescape(matches[0])
