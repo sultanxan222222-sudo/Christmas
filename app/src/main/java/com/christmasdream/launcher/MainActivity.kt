@@ -2,6 +2,7 @@ package com.christmasdream.launcher
 
 import android.app.*
 import android.content.*
+import android.content.pm.PackageManager
 import android.graphics.*
 import android.graphics.drawable.GradientDrawable
 import android.media.MediaPlayer
