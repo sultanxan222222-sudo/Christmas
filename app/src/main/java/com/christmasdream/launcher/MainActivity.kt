@@ -55,7 +55,7 @@ class MainActivity : Activity() {
     private var newYearOverlay: NewYearCelebrationView? = null
     private var santaTts: TextToSpeech? = null
     private var ttsReady = false
-    private val musicPlayer = JingleMusicPlayer()
+    private val musicPlayer by lazy { JingleMusicPlayer(applicationContext) }
     private var iceClock: IceClockView? = null
     private val newYearCheck = object : Runnable {
         override fun run() {
@@ -84,7 +84,7 @@ class MainActivity : Activity() {
 
     override fun onPause() {
         newYearHandler.removeCallbacks(newYearCheck)
-        musicPlayer.stop()
+        musicPlayer.pause()
         super.onPause()
     }
 
@@ -93,6 +93,7 @@ class MainActivity : Activity() {
         santaTts?.stop()
         santaTts?.shutdown()
         santaTts = null
+        musicPlayer.release()
         super.onDestroy()
     }
 
