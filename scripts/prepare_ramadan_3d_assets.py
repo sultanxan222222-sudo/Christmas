@@ -22,10 +22,10 @@ OUT = ROOT / "app" / "src" / "main" / "assets" / "models"
 SOURCES = [
     {
         "file": "mosque_two_minarets.glb",
-        "page": "https://www.innerscene.com/tools/library/3d-parts/ottoman-classical-mosque-central-dome-and-2-minarets-d1141513",
-        "title": "Ottoman classical mosque, central dome and 2 minarets",
+        "page": "https://www.innerscene.com/tools/library/3d-parts/mosque-with-dome-and-minarets-73f6b573",
+        "title": "Detailed Ottoman mosque with dome and two minarets",
         "license": "CC0 1.0",
-        "notes": "Full architectural model; two pencil minarets and central dome.",
+        "notes": "High-detail CC0 Ottoman mosque; recessed arched windows, doors, tiled portico, domes and two minarets.",
     },
     {
         "file": "brass_hurricane_lantern.glb",
