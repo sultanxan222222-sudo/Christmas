@@ -27,12 +27,26 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
     private var modelViewer: ModelViewer? = null
     private var prayerLightOn = false
     private var isRendering = false
+    private var animationStartNanos = 0L
 
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
             val viewer = modelViewer
             if (isRendering && viewer != null) {
-                runCatching { viewer.render(frameTimeNanos) }
+                runCatching {
+                    val animator = viewer.animator
+                    if (animator != null && animator.animationCount > 0) {
+                        if (animationStartNanos == 0L) animationStartNanos = frameTimeNanos
+                        val elapsed = ((frameTimeNanos - animationStartNanos) / 1_000_000_000.0 % 2.0).toFloat()
+                        // The GLB contains separate clips for the flags, flames, lights and kitten.
+                        // Apply every clip at the same clock time so the complete scene animates together.
+                        for (index in 0 until animator.animationCount) {
+                            animator.applyAnimation(index, elapsed)
+                        }
+                        animator.updateBoneMatrices()
+                    }
+                    viewer.render(frameTimeNanos)
+                }
                 Choreographer.getInstance().postFrameCallback(this)
             }
         }
@@ -89,6 +103,8 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
 
             val bytes = context.assets.open("models/ramadan_dream_scene.glb").use { it.readBytes() }
             viewer.loadModelGlb(ByteBuffer.wrap(bytes))
+            viewer.autoPlayAnimations = false
+            animationStartNanos = 0L
             viewer.transformToUnitCube()
             viewer.cameraFocalLength = 34f
 
