@@ -45,7 +45,9 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
                         // The GLB contains separate clips for the flags, flames, lights and kitten.
                         // Apply every clip at the same clock time so the complete scene animates together.
                         for (index in 0 until animator.animationCount) {
-                            animator.applyAnimation(index, elapsed)
+                            val duration = animator.getAnimationDuration(index)
+                            val clipTime = if (duration > 0f) elapsed % duration else elapsed
+                            animator.applyAnimation(index, clipTime)
                         }
                         animator.updateBoneMatrices()
                     }
