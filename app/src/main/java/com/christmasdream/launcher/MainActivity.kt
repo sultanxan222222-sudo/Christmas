@@ -480,14 +480,14 @@ class MainActivity : Activity() {
             content.addView(row)
         }
         heading("МОИ КАРТОЧКИ")
-        content.addView(label("Добавляй приложения и разделы на главный экран или убирай карточки без удаления самих приложений.", 11f, ivory))
-        actionCard("⚙  Управление всеми карточками") { selected = "Карточки"; render() }
-        actionCard("＋  Добавить карточку приложения") { manageHomeCards(true) }
-        actionCard("−  Удалить карточку приложения") { manageHomeCards(false) }
-        actionCard("＋  Добавить карточку раздела") { manageHomeSections(true) }
-        actionCard("−  Удалить карточку раздела") { manageHomeSections(false) }
+        content.addView(label("Здесь отображаются только выбранные тобой приложения и разделы. Остальные приложения остаются в общем меню.", 11f, ivory))
+        actionCard("⚙  Управление карточками") { selected = "Карточки"; render() }
         val pinned = pinnedApps()
-        if (pinned.isNotEmpty()) appGrid(pinned, homeCardsOnly = true)
+        if (pinned.isEmpty()) {
+            content.addView(label("Пока нет выбранных приложений. Открой «Управление карточками», чтобы добавить нужные.", 12f, ivory))
+        } else {
+            appGrid(pinned, homeCardsOnly = true)
+        }
         val pinnedSections = wallpaperPrefs.getStringSet("home_card_sections", emptySet()) ?: emptySet()
         pinnedSections.forEach { section ->
             actionCard(
@@ -496,8 +496,6 @@ class MainActivity : Activity() {
                 longAction = { removeHomeSection(section) }
             )
         }
-        heading("БЫСТРЫЙ ДОСТУП")
-        appGrid(installedApps().take(if (wide) 12 else 8))
     }
 
     private fun cardsManager() {
