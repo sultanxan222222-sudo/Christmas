@@ -117,13 +117,13 @@ for tree_obj in tree_objects + tree_right_objects:
                     if tree_rough:
                         tree_rough.default_value = 0.72
 cat_root, cat_objects = import_group(
-    "sleeping_cat.glb", "Sleeping kitten • clearly visible hero animal", 1.85, (-1.62, -1.05, 0.02)
+    "sleeping_cat.glb", "Sleeping kitten • clearly visible hero animal", 3.15, (-1.62, -1.18, 0.02)
 )
 lantern_left_root, lantern_left_objects = import_group(
-    "brass_hurricane_lantern.glb", "Left brass lantern", 2.65, (-0.98, -2.25, 0.0)
+    "brass_hurricane_lantern.glb", "Left brass lantern", 3.65, (-1.22, -2.18, 0.0)
 )
 lantern_right_root, lantern_right_objects = import_group(
-    "brass_hurricane_lantern.glb", "Right brass lantern", 2.65, (0.98, -2.25, 0.0)
+    "brass_hurricane_lantern.glb", "Right brass lantern", 3.65, (1.22, -2.18, 0.0)
 )
 
 # Warm gold, emerald textile and night-ground materials.
@@ -361,7 +361,7 @@ for index in range(42):
 
 # A subtle breathing motion for the sleeping kitten.
 for frame, factor in [(1, 1.0), (30, 1.018), (60, 1.0)]:
-    cat_root.scale = (1.85 * factor, 1.85, 1.85 * factor)
+    cat_root.scale = (3.15 * factor, 3.15, 3.15 * factor)
     cat_root.keyframe_insert(data_path="scale", frame=frame)
 
 # Keep the scene in a gentle looping animation range.
@@ -395,7 +395,7 @@ scene.collection.objects.link(camera)
 camera.location = (4.2, -14.2, 5.8)
 target = Vector((0.0, -0.05, 1.45))
 camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
-camera_data.lens = 42
+camera_data.lens = 48
 scene.camera = camera
 key_data = bpy.data.lights.new("Preview softbox key", "AREA")
 key_data.energy = 1100
@@ -407,7 +407,7 @@ key_obj.location = (-5.0, -3.0, 8.5)
 key_obj.rotation_euler = (Vector((0.0, 0.0, 1.0)) - key_obj.location).to_track_quat("-Z", "Y").to_euler()
 scene.render.resolution_x = 1920
 scene.render.resolution_y = 1080
-scene.render.resolution_percentage = 72
+scene.render.resolution_percentage = 82
 scene.render.image_settings.file_format = "PNG"
 scene.render.filepath = os.path.join(ROOT, "ramadan-3d-preview.png")
 moon_data = bpy.data.lights.new("Moonlight • cool cinematic rim", "AREA")
