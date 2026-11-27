@@ -4,14 +4,13 @@ plugins {
 }
 android {
     namespace = "com.christmasdream.launcher"
-    // Match the SDK level used by the TV-compatible Matrix build.
     compileSdk = 36
     defaultConfig {
         applicationId = "com.christmasdream.launcher"
         minSdk = 23
         targetSdk = 28
-        versionCode = 6
-        versionName = "1.4.1"
+        versionCode = 7
+        versionName = "1.5.0"
     }
     flavorDimensions += "device"
     productFlavors {
@@ -22,7 +21,6 @@ android {
             dimension = "device"
             applicationIdSuffix = ".tv"
             versionNameSuffix = "-tv"
-            // The TV build follows the same Android 8+ baseline as the proven Matrix TV app.
             minSdk = 26
         }
     }
@@ -33,8 +31,15 @@ android {
     kotlinOptions { jvmTarget = "17" }
     packaging {
         jniLibs {
-            // Match the packaging mode used by the successfully installed Matrix TV APK.
             useLegacyPackaging = true
         }
     }
+}
+
+dependencies {
+    val media3Version = "1.5.1"
+    implementation("androidx.media3:media3-exoplayer:$media3Version")
+    implementation("androidx.media3:media3-ui:$media3Version")
+    implementation("androidx.media3:media3-exoplayer-hls:$media3Version")
+    implementation("androidx.media3:media3-exoplayer-dash:$media3Version")
 }
