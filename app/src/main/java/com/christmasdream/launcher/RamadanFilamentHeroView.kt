@@ -8,6 +8,8 @@ import android.view.MotionEvent
 import android.view.SurfaceView
 import android.widget.FrameLayout
 import com.google.android.filament.View
+import com.google.android.filament.IndirectLight
+import com.google.android.filament.Skybox
 import com.google.android.filament.utils.ModelViewer
 import com.google.android.filament.utils.Utils
 import java.nio.ByteBuffer
@@ -25,6 +27,8 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
 
     private var surface: SurfaceView? = null
     private var modelViewer: ModelViewer? = null
+    private var ambientLight: IndirectLight? = null
+    private var nightSkybox: Skybox? = null
     private var prayerLightOn = false
     private var isRendering = false
     private var animationStartNanos = 0L
@@ -91,6 +95,21 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
         addView(surfaceView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         surface = surfaceView
 
+        // Run our resource cleanup before ModelViewer's own surface-detach cleanup.
+        surfaceView.addOnAttachStateChangeListener(object : OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: android.view.View) = Unit
+            override fun onViewDetachedFromWindow(v: android.view.View) {
+                val engine = modelViewer?.engine
+                ambientLight?.let { light -> runCatching { engine?.destroyIndirectLight(light) } }
+                nightSkybox?.let { sky -> runCatching { engine?.destroySkybox(sky) } }
+                ambientLight = null
+                nightSkybox = null
+                modelViewer = null
+                surface = null
+                animationStartNanos = 0L
+            }
+        })
+
         try {
             val viewer = ModelViewer(surfaceView)
             modelViewer = viewer
@@ -107,10 +126,21 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
             viewer.transformToUnitCube()
             viewer.cameraFocalLength = 34f
 
+            // Cool low-level ambient illumination keeps PBR stone, glass and brass readable at night.
+            ambientLight = IndirectLight.Builder()
+                .irradiance(1, floatArrayOf(0.42f, 0.50f, 0.58f))
+                .intensity(20000f)
+                .build(viewer.engine)
+            nightSkybox = Skybox.Builder()
+                .color(0.006f, 0.018f, 0.024f, 1.0f)
+                .build(viewer.engine)
+            viewer.scene.indirectLight = ambientLight
+            viewer.scene.skybox = nightSkybox
+
             // Night-time baseline; prayer time raises the warm architectural illumination.
             val lightManager = viewer.engine.lightManager
             val lightInstance = lightManager.getInstance(viewer.light)
-            lightManager.setIntensity(lightInstance, if (prayerLightOn) 68000f else 14500f)
+            lightManager.setIntensity(lightInstance, if (prayerLightOn) 65000f else 8000f)
             lightManager.setColor(
                 lightInstance,
                 if (prayerLightOn) 1.0f else 0.58f,
@@ -133,15 +163,6 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
                 enabled = true
             }
 
-            surfaceView.addOnAttachStateChangeListener(object : OnAttachStateChangeListener {
-                override fun onViewAttachedToWindow(v: android.view.View) = Unit
-                override fun onViewDetachedFromWindow(v: android.view.View) {
-                    // ModelViewer's own detach listener releases Filament's native resources.
-                    stopRendering()
-                    modelViewer = null
-                    surface = null
-                }
-            })
             startRendering()
         } catch (error: Throwable) {
             modelViewer = null
@@ -162,7 +183,7 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
         runCatching {
             val manager = viewer.engine.lightManager
             val instance = manager.getInstance(viewer.light)
-            manager.setIntensity(instance, if (enabled) 68000f else 14500f)
+            manager.setIntensity(instance, if (enabled) 65000f else 8000f)
             manager.setColor(
                 instance,
                 if (enabled) 1.0f else 0.58f,
