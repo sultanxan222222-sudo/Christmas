@@ -86,7 +86,6 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
         if (modelViewer != null || !isAttachedToWindow) return
 
         val surfaceView = SurfaceView(context).apply {
-            setZOrderMediaOverlay(true)
             setBackgroundColor(Color.TRANSPARENT)
         }
         addView(surfaceView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
