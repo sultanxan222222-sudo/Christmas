@@ -72,25 +72,26 @@ class JingleMusicPlayer(context: Context) {
             if (!requestFocus()) return
             var current = player
             if (current == null) {
-                current = MediaPlayer()
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    current.setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_MEDIA)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                            .build()
-                    )
-                }
-                if (customUri.isNullOrBlank()) {
-                    val afd = appContext.resources.openRawResourceFd(R.raw.jingle_bells) ?: return
-                    current.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-                    afd.close()
+                current = if (customUri.isNullOrBlank()) {
+                    MediaPlayer.create(appContext, R.raw.jingle_bells) ?: return
                 } else {
-                    current.setDataSource(appContext, Uri.parse(customUri))
+                    MediaPlayer().apply {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                            setAudioAttributes(
+                                AudioAttributes.Builder()
+                                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                                    .build()
+                            )
+                        }
+                        setDataSource(appContext, Uri.parse(customUri))
+                        isLooping = true
+                        setVolume(0.20f, 0.20f)
+                        prepare()
+                    }
                 }
                 current.isLooping = true
                 current.setVolume(0.20f, 0.20f)
-                current.prepare()
                 player = current
             }
             if (!current.isPlaying) current.start()
