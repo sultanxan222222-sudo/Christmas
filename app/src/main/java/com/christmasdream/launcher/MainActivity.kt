@@ -47,8 +47,8 @@ class MainActivity : Activity() {
     private val white = Color.rgb(255, 255, 250)
     private val ivory = Color.rgb(255, 247, 235)
     private val gold = Color.rgb(255, 211, 125)
-    private val sections = listOf("Главная", "Фильмы", "ТВ", "Игры", "Приложения", "Настройки")
-    private val symbols = mapOf("Главная" to "⌂", "Фильмы" to "🎬", "ТВ" to "📺", "Игры" to "🎮", "Приложения" to "▦", "Настройки" to "⚙")
+    private val sections = listOf("Главная", "Фильмы", "ТВ", "Игры", "Приложения", "Музыка", "Настройки")
+    private val symbols = mapOf("Главная" to "⌂", "Фильмы" to "🎬", "ТВ" to "📺", "Игры" to "🎮", "Приложения" to "▦", "Музыка" to "♫", "Настройки" to "⚙")
     private var selected = "Главная"
     private lateinit var content: LinearLayout
     private lateinit var nav: LinearLayout
@@ -323,7 +323,7 @@ class MainActivity : Activity() {
             chip.setPadding(dp(13), dp(10), dp(13), dp(10))
             chip.isFocusable = true
             chip.isClickable = true
-            chip.setOnClickListener { selected = section; render() }
+            chip.setOnClickListener { if (section == "Музыка") startActivity(Intent(this, ChristmasMusicActivity::class.java)) else { selected = section; render() } }
             chip.setOnFocusChangeListener { v, focused ->
                 if (focused) v.background = shape(white, 18, gold)
                 else v.background = shape(if (active) white else 0x44FFFFFF, 18, if (active) gold else 0x66FFFFFF)
@@ -385,6 +385,7 @@ class MainActivity : Activity() {
             Triple("ТВ", "▤", "Ваши приложения для просмотра"),
             Triple("Игры", "♟", "Время для весёлых побед"),
             Triple("Приложения", "▦", "Вся ваша коллекция"),
+            Triple("Музыка", "♫", "Ваш праздничный MP3-плеер"),
             Triple("Настройки", "⚙", "Оформление и управление")
         )
         val columns = if (wide) 4 else 2
@@ -403,7 +404,7 @@ class MainActivity : Activity() {
                 card.addView(label(item.second, 27f, gold, true))
                 card.addView(label(item.first.uppercase(Locale.getDefault()), 10f, gold, true).apply { setPadding(0, dp(3), 0, dp(3)) })
                 card.addView(label(item.third, 10f, Color.rgb(238, 218, 203)).apply { maxLines = 2 })
-                card.setOnClickListener { selected = item.first; render() }
+                card.setOnClickListener { if (item.first == "Музыка") startActivity(Intent(this, ChristmasMusicActivity::class.java)) else { selected = item.first; render() } }
                 card.setOnFocusChangeListener { v, focused ->
                     v.background = glass(20, focused)
                     v.scaleX = if (focused) 1.035f else 1f
@@ -425,7 +426,7 @@ class MainActivity : Activity() {
         val pinned = pinnedApps()
         if (pinned.isNotEmpty()) appGrid(pinned)
         val pinnedSections = wallpaperPrefs.getStringSet("home_card_sections", emptySet()) ?: emptySet()
-        pinnedSections.forEach { section -> actionCard("✦  $section") { selected = section; render() } }
+        pinnedSections.forEach { section -> actionCard("✦  $section") { if (section == "Музыка") startActivity(Intent(this, ChristmasMusicActivity::class.java)) else { selected = section; render() } } }
         heading("БЫСТРЫЙ ДОСТУП")
         appGrid(installedApps().take(if (wide) 12 else 8))
     }
@@ -657,6 +658,7 @@ class MainActivity : Activity() {
         content.addView(info)
         actionCard("🕰   Выбрать дизайн ледяных часов") { chooseClockSkin() }
         actionCard("♫   Фоновая музыка: " + if (wallpaperPrefs.getBoolean("jingle_music_enabled", true)) "ВКЛ" else "ВЫКЛ") { toggleMusic() }
+        actionCard("♫   Открыть рождественский MP3-плеер") { startActivity(Intent(this, ChristmasMusicActivity::class.java)) }
         actionCard("♫   Выбрать свою фоновую музыку") { chooseMusic() }
         actionCard("↺   Вернуть встроенную музыку") { resetMusic() }
         val selectedTrack = wallpaperPrefs.getString("custom_music_uri", null)
