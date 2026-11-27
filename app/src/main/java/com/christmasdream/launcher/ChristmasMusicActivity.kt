@@ -30,6 +30,7 @@ class ChristmasMusicActivity : Activity() {
     private var titleView: TextView? = null
     private var timeView: TextView? = null
     private var seek: SeekBar? = null
+    private var volumeSeek: SeekBar? = null
     private var seeking = false
     private var pulse: ValueAnimator? = null
     private var shuffle = false
@@ -48,6 +49,7 @@ class ChristmasMusicActivity : Activity() {
         window.statusBarColor = Color.rgb(66, 12, 31)
         window.navigationBarColor = Color.rgb(66, 12, 31)
         player = ChristmasPlaylistPlayer(this) { _, _, _, _ -> runOnUiThread { refreshPlayer() } }
+        player.setVolume(prefs.getFloat("christmas_mp3_volume", 0.8f))
         loadTracks()
         buildScreen()
     }
@@ -154,6 +156,28 @@ class ChristmasMusicActivity : Activity() {
             })
         }
         panel.addView(seek)
+        panel.addView(text("ГРОМКОСТЬ", 10f, 0xFFFFD98D.toInt(), true).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, dp(8), 0, 0)
+        })
+        volumeSeek = SeekBar(this).apply {
+            max = 100
+            progress = (prefs.getFloat("christmas_mp3_volume", 0.8f) * 100).toInt()
+            progressTintList = android.content.res.ColorStateList.valueOf(0xFFE9C47E.toInt())
+            thumbTintList = android.content.res.ColorStateList.valueOf(0xFFFFE7B8.toInt())
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onStartTrackingTouch(bar: SeekBar?) { }
+                override fun onStopTrackingTouch(bar: SeekBar?) { }
+                override fun onProgressChanged(bar: SeekBar?, value: Int, fromUser: Boolean) {
+                    if (fromUser) {
+                        val volume = value / 100f
+                        player.setVolume(volume)
+                        prefs.edit().putFloat("christmas_mp3_volume", volume).apply()
+                    }
+                }
+            })
+        }
+        panel.addView(volumeSeek)
         timeView = text("00:00  /  00:00", 11f, 0xFFFFEBD0.toInt()).apply { gravity = Gravity.CENTER }
         panel.addView(timeView)
         root.addView(panel, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(15) })
