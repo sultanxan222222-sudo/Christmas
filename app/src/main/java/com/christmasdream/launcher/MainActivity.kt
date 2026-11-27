@@ -632,9 +632,14 @@ class MainActivity : Activity() {
         list.setOnItemClickListener { _, _, position, _ ->
             val info = visibleApps.getOrNull(position) ?: return@setOnItemClickListener
             val pkg = info.activityInfo.packageName
-            if (add) current.add(pkg) else current.remove(pkg)
             val order = orderedPinnedPackages(current)
-            if (add && pkg !in order) order.add(pkg)
+            if (add) {
+                current.add(pkg)
+                order.add(pkg)
+            } else {
+                current.remove(pkg)
+                order.remove(pkg)
+            }
             saveHomePins(current, order)
             refreshList()
             android.widget.Toast.makeText(this,
@@ -902,9 +907,9 @@ class MainActivity : Activity() {
             if (index >= 0 && index < order.lastIndex) actions.add("Переместить вправо" to { moveHomeCard(pkg, 1) })
         } else {
             actions.add("Добавить карточку на главный экран" to {
-                current.add(pkg)
                 val updated = orderedPinnedPackages(current)
-                if (pkg !in updated) updated.add(pkg)
+                current.add(pkg)
+                updated.add(pkg)
                 saveHomePins(current, updated)
                 render()
                 android.widget.Toast.makeText(this, "Карточка добавлена на главный экран.", android.widget.Toast.LENGTH_SHORT).show()
