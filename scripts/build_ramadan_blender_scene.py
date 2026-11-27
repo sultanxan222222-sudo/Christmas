@@ -102,7 +102,7 @@ emerald = pbr_material("Ramadan • deep emerald silk", (0.012, 0.18, 0.105), 0.
 night_ground = pbr_material("Ramadan • midnight garden stone", (0.012, 0.035, 0.029), 0.18, 0.34)
 flame_mat = pbr_material("Ramadan • living amber flame", (1.0, 0.19, 0.018), 0.0, 0.25, (1.0, 0.13, 0.008))
 
-# A softly reflective ground plane, large enough to catch the lantern shadows.
+# A softly reflective, hero-sized courtyard plane; it must not dominate Filament auto-framing.
 bpy.ops.mesh.primitive_plane_add(size=5.6, location=(0, 0, -0.018))
 ground = bpy.context.object
 ground.name = "Midnight courtyard • ground"
