@@ -100,14 +100,15 @@ def discover_glb(page_url: str, html: bytes) -> str:
     print("Candidate download links:")
     for url in candidates:
         print("  " + url)
-    page_host = urllib.parse.urlparse(page_url).netloc
+    # Prefer the model-specific API download endpoint published by the page.
     for url in candidates:
         parsed = urllib.parse.urlparse(url)
-        if re.search(r"\.glb(?:$|[?#])", url, re.I) and parsed.netloc and parsed.netloc != page_host:
+        if "/api/library/" in parsed.path and parsed.path.rstrip("/").endswith("/download"):
             return url
+    page_path = urllib.parse.urlparse(page_url).path
     for url in candidates:
         parsed = urllib.parse.urlparse(url)
-        if re.search(r"\.glb(?:$|[?#])", url, re.I) and parsed.netloc and parsed.path != urllib.parse.urlparse(page_url).path:
+        if re.search(r"\.glb(?:$|[?#])", url, re.I) and parsed.path != page_path:
             return url
     if candidates:
         return candidates[0]
