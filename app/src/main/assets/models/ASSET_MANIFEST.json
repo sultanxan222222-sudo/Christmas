@@ -1,0 +1,66 @@
+[
+  {
+    "file": "mosque_two_minarets.glb",
+    "page": "https://www.innerscene.com/tools/library/3d-parts/ottoman-classical-mosque-central-dome-and-2-minarets-d1141513",
+    "title": "Ottoman classical mosque, central dome and 2 minarets",
+    "license": "CC0 1.0",
+    "notes": "Full architectural model; two pencil minarets and central dome.",
+    "download_url": "https://www.innerscene.com/api/library/ottoman-classical-mosque-central-dome-and-2-minarets-d1141513/download",
+    "bytes": 1757416,
+    "version": 2,
+    "meshes": 27,
+    "materials": 9,
+    "textures": 9,
+    "animations": 0,
+    "extensions": []
+  },
+  {
+    "file": "brass_hurricane_lantern.glb",
+    "page": "https://www.innerscene.com/tools/library/3d-parts/brass-hurricane-lantern-c91f8ff4",
+    "title": "Brass hurricane lantern",
+    "license": "CC0 1.0",
+    "notes": "PBR brass and glass lantern model.",
+    "download_url": "https://www.innerscene.com/api/library/brass-hurricane-lantern-c91f8ff4/download",
+    "bytes": 3561248,
+    "version": 2,
+    "meshes": 2,
+    "materials": 2,
+    "textures": 4,
+    "animations": 0,
+    "extensions": [
+      "KHR_materials_transmission"
+    ]
+  },
+  {
+    "file": "sleeping_cat.glb",
+    "page": "https://www.innerscene.com/tools/library/3d-parts/domestic-cat-curled-asleep-73a8a293",
+    "title": "Domestic cat curled asleep",
+    "license": "CC0 1.0",
+    "notes": "Curled sleeping domestic cat model.",
+    "download_url": "https://www.innerscene.com/api/library/domestic-cat-curled-asleep-73a8a293/download",
+    "bytes": 611988,
+    "version": 2,
+    "meshes": 21,
+    "materials": 5,
+    "textures": 5,
+    "animations": 0,
+    "extensions": []
+  },
+  {
+    "file": "broadleaf_canopy_tree.glb",
+    "page": "https://www.innerscene.com/tools/library/3d-parts/broadleaf-rainforest-canopy-tree-25-m-b42c69c8",
+    "title": "Broadleaf rainforest canopy tree, 25 m",
+    "license": "CC0 1.0",
+    "notes": "Wide mature canopy silhouette; artistic reference only, not a botanical identification.",
+    "download_url": "https://www.innerscene.com/api/library/broadleaf-rainforest-canopy-tree-25-m-b42c69c8/download",
+    "bytes": 2407552,
+    "version": 2,
+    "meshes": 3,
+    "materials": 3,
+    "textures": 3,
+    "animations": 0,
+    "extensions": [
+      "KHR_materials_specular"
+    ]
+  }
+]
