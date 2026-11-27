@@ -53,21 +53,27 @@ jobs:
       - name: Add validated models to the launcher source
         run: |
           mkdir -p app/src/main/assets/models
+          cp app/src/main/assets/models/ramadan_dream_scene.glb "$RUNNER_TEMP/ramadan_dream_scene.glb"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          for attempt in 1 2 3; do
+          for attempt in 1 2 3 4 5; do
             git fetch origin "$GITHUB_REF_NAME"
-            git reset --soft "origin/$GITHUB_REF_NAME"
-            git add app/src/main/assets/models
+            git reset --hard "origin/$GITHUB_REF_NAME"
+            cp "$RUNNER_TEMP/ramadan_dream_scene.glb" app/src/main/assets/models/ramadan_dream_scene.glb
+            git add app/src/main/assets/models/ramadan_dream_scene.glb
             if git diff --cached --quiet; then
               echo "3D model assets are already up to date."
               break
             fi
-            git commit -m "Add validated Ramadan 3D scene models"
-            if git push; then
+            git commit -m "Update validated Ramadan 3D scene models"
+            if git push origin "HEAD:$GITHUB_REF_NAME"; then
               break
             fi
-            echo "Branch moved during upload; retrying safely against its latest head (attempt $attempt)."
+            echo "Concurrent branch update; rebasing generated asset against latest branch (attempt $attempt)."
+            if [ "$attempt" -eq 5 ]; then
+              echo "Could not update the branch after five attempts."
+              exit 1
+            fi
           done
       - name: Upload validated model pack
         uses: actions/upload-artifact@v4
