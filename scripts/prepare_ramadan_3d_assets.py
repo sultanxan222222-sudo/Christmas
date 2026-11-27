@@ -97,8 +97,17 @@ def discover_glb(page_url: str, html: bytes) -> str:
 
     # Prefer an actual GLB URL over a generic download/viewer route.
     candidates = list(dict.fromkeys(candidates))
+    print("Candidate download links:")
     for url in candidates:
-        if re.search(r"\.glb(?:$|[?#])", url, re.I):
+        print("  " + url)
+    page_host = urllib.parse.urlparse(page_url).netloc
+    for url in candidates:
+        parsed = urllib.parse.urlparse(url)
+        if re.search(r"\.glb(?:$|[?#])", url, re.I) and parsed.netloc and parsed.netloc != page_host:
+            return url
+    for url in candidates:
+        parsed = urllib.parse.urlparse(url)
+        if re.search(r"\.glb(?:$|[?#])", url, re.I) and parsed.netloc and parsed.path != urllib.parse.urlparse(page_url).path:
             return url
     if candidates:
         return candidates[0]
