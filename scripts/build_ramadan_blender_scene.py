@@ -258,6 +258,22 @@ def create_flame(name, x, y):
 create_flame("Left lantern • living flame", -0.98, -2.25)
 create_flame("Right lantern • living flame", 0.98, -2.25)
 
+# Hidden-at-night warm point lights at prayer-hall windows and minaret balconies.
+# Filament toggles these by their stable node-name prefix at each prayer time.
+prayer_light_positions = [
+    (-0.72, -1.96, 0.42), (-0.36, -1.96, 0.58), (0.0, -1.96, 0.66),
+    (0.36, -1.96, 0.58), (0.72, -1.96, 0.42),
+    (-0.96, 0.08, 1.52), (0.96, 0.08, 1.52),
+]
+for index, position in enumerate(prayer_light_positions):
+    light_data = bpy.data.lights.new("Prayer warm window light %02d" % index, "POINT")
+    light_data.energy = 1.0
+    light_data.color = (1.0, 0.58, 0.28)
+    light_data.shadow_soft_size = 0.20
+    light_obj = bpy.data.objects.new("PRAYER_WINDOW_LIGHT_%02d" % index, light_data)
+    bpy.context.collection.objects.link(light_obj)
+    light_obj.location = position
+
 # A field of tiny emissive 3D stars behind the architecture.
 star_mat = pbr_material("Ramadan • cool starlight", (0.48, 0.72, 0.88), 0.0, 0.3, (0.18, 0.34, 0.52))
 star_rng = random.Random(20261127)
