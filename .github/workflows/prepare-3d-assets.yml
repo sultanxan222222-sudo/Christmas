@@ -6,6 +6,7 @@ on:
     branches: [ ramadan-islamic-launcher ]
     paths:
       - "scripts/prepare_ramadan_3d_assets.py"
+      - "scripts/build_ramadan_blender_scene.py"
       - ".github/workflows/prepare-3d-assets.yml"
 
 permissions:
@@ -23,6 +24,28 @@ jobs:
           python-version: "3.12"
       - name: Discover, download and validate CC0 GLB models
         run: python3 scripts/prepare_ramadan_3d_assets.py
+      - name: Install Blender for full 3D scene assembly
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends blender
+      - name: Assemble the animated Ramadan 3D scene
+        run: |
+          blender --background --python scripts/build_ramadan_blender_scene.py
+          python3 - <<'PY'
+          import json, struct
+          from pathlib import Path
+          p = Path("app/src/main/assets/models/ramadan_dream_scene.glb")
+          data = p.read_bytes()
+          assert data[:4] == b"glTF", "Final scene is not a binary glTF"
+          version, length = struct.unpack_from("<II", data, 4)
+          assert version == 2 and length == len(data), "Invalid GLB header"
+          chunk_len, chunk_type = struct.unpack_from("<II", data, 12)
+          assert chunk_type == 0x4E4F534A, "Missing GLB JSON chunk"
+          gltf = json.loads(data[20:20+chunk_len].decode("utf-8").rstrip(" \\t\\r\\n\\0"))
+          assert len(gltf.get("meshes", [])) >= 30, "Scene unexpectedly lost source geometry"
+          assert len(gltf.get("animations", [])) >= 1, "Scene has no exported animation clips"
+          print("Validated final scene:", len(gltf["meshes"]), "meshes;", len(gltf.get("materials", [])), "materials;", len(gltf.get("animations", [])), "animation clips;", len(data), "bytes")
+          PY
       - name: Package validated 3D assets
         run: |
           cd app/src/main/assets
