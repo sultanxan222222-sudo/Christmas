@@ -688,7 +688,24 @@ class MainActivity : Activity() {
         val next = prayerNames.keys.firstOrNull { (prayerTimes[it] ?: "99:99") > now }
         val line = if (next != null) "Следующий намаз: ${prayerNames[next]} • ${prayerTimes[next]}"
             else "На сегодня молитвы завершены"
-        prayerText.text = prayerNames.keys.joinToString("     ") { "${prayerNames[it]}  ${prayerTimes[it] ?: "--:--"}" } + "\n\n" + line
+        val maghrib = prayerTimes["maghrib"]
+        val iftarLine = if (maghrib != null && now < maghrib) {
+            try {
+                val parts = maghrib.split(":")
+                val target = Calendar.getInstance(TimeZone.getTimeZone("Europe/Moscow")).apply {
+                    set(Calendar.HOUR_OF_DAY, parts[0].toInt())
+                    set(Calendar.MINUTE, parts[1].take(2).toInt())
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                val seconds = ((target.timeInMillis - System.currentTimeMillis()) / 1000L).coerceAtLeast(0L)
+                "До ифтара: %02d:%02d:%02d".format(seconds / 3600, (seconds % 3600) / 60, seconds % 60)
+            } catch (_: Exception) { "Время ифтара: Магриб • $maghrib" }
+        } else if (maghrib != null) {
+            "Ифтар • время Магриба наступило"
+        } else ""
+        val rows = prayerNames.keys.joinToString("     ") { "${prayerNames[it]}  ${prayerTimes[it] ?: "--:--"}" }
+        prayerText.text = rows + "\n\n" + line + if (iftarLine.isNotEmpty()) "\n" + iftarLine else ""
     }
 
     private inner class RamadanSky(context: Context) : View(context) {
