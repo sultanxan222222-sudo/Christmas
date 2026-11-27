@@ -121,7 +121,9 @@ class MainActivity : Activity() {
     private fun buildScreen() {
         root = FrameLayout(this)
         heroScene = null
-        root.addView(RamadanSky(this), FrameLayout.LayoutParams(-1, -1))
+        root.addView(View(this).apply {
+            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0xFF041A17.toInt(), 0xFF0A3026.toInt(), 0xFF020D11.toInt()))
+        }, FrameLayout.LayoutParams(-1, -1))
         val shade = View(this).apply { setBackgroundColor(0x3300120D) }
         root.addView(shade, FrameLayout.LayoutParams(-1, -1))
         val scroll = ScrollView(this).apply { isFillViewport = true; clipToPadding = false }
@@ -737,44 +739,7 @@ class MainActivity : Activity() {
         prayerText.text = rows + "\n\n" + line + if (iftarLine.isNotEmpty()) "\n" + iftarLine else ""
     }
 
-    private inner class RamadanSky(context: Context) : View(context) {
-        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private val stars = Array(42) { i ->
-            val random = Random(9800L + i * 41L)
-            floatArrayOf(random.nextFloat(), random.nextFloat() * 0.72f, 0.6f + random.nextFloat() * 1.4f)
-        }
-        private var phase = 0f
-        private val animator = object : Runnable {
-            override fun run() {
-                phase += 0.025f
-                invalidate()
-                postDelayed(this, 90L)
-            }
-        }
-        init { setLayerType(View.LAYER_TYPE_SOFTWARE, null) }
-        override fun onAttachedToWindow() { super.onAttachedToWindow(); post(animator) }
-        override fun onDetachedFromWindow() { removeCallbacks(animator); super.onDetachedFromWindow() }
-        override fun onDraw(canvas: Canvas) {
-            val w = width.toFloat()
-            val h = height.toFloat()
-            paint.shader = LinearGradient(
-                0f, 0f, w, h,
-                intArrayOf(0xFF041A17.toInt(), 0xFF0A3026.toInt(), 0xFF020D11.toInt()),
-                null, Shader.TileMode.CLAMP
-            )
-            canvas.drawRect(0f, 0f, w, h, paint)
-            paint.shader = null
-            stars.forEachIndexed { index, star ->
-                val shimmer = (0.50f + 0.40f * kotlin.math.sin(phase + index * 0.7f)).coerceIn(0.1f, 1f)
-                paint.color = Color.argb((65f + shimmer * 95f).toInt(), 206, 230, 211)
-                canvas.drawCircle(star[0] * w, star[1] * h, star[2], paint)
-            }
-            paint.color = 0x44020C0A
-            canvas.drawOval(-w * 0.2f, h * 0.72f, w * 0.6f, h * 1.08f, paint)
-            canvas.drawOval(w * 0.5f, h * 0.68f, w * 1.2f, h * 1.08f, paint)
-        }
-    }
-}
+
 
 object PrayerAlarm {
     private const val ID = 7511
