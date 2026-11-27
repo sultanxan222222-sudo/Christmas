@@ -2,7 +2,7 @@ import bpy
 import math
 import os
 import random
-from mathutils import Vector
+from mathutils import Vector, Matrix
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 MODELS = os.path.join(ROOT, "app", "src", "main", "assets", "models")
@@ -25,7 +25,8 @@ def import_group(filename, label, scale, location):
     for obj in imported:
         world = obj.matrix_world.copy()
         obj.parent = root
-        obj.matrix_world = world
+        obj.matrix_parent_inverse = Matrix.Identity(4)
+        obj.matrix_basis = world
     root.location = location
     root.scale = (scale, scale, scale)
     return root, imported
@@ -133,7 +134,7 @@ night_ground = pbr_material("Ramadan • midnight garden stone", (0.012, 0.035, 
 flame_mat = pbr_material("Ramadan • living amber flame", (1.0, 0.19, 0.018), 0.0, 0.25, (1.0, 0.13, 0.008))
 
 # A softly reflective, hero-sized courtyard plane; it must not dominate Filament auto-framing.
-bpy.ops.mesh.primitive_plane_add(size=5.6, location=(0, 0, -0.018))
+bpy.ops.mesh.primitive_plane_add(size=12.0, location=(0, 0, -0.018))
 ground = bpy.context.object
 ground.name = "Midnight courtyard • ground"
 ground.data.materials.append(night_ground)
@@ -360,7 +361,7 @@ for index in range(42):
 
 # A subtle breathing motion for the sleeping kitten.
 for frame, factor in [(1, 1.0), (30, 1.018), (60, 1.0)]:
-    cat_root.scale = (1.18 * factor, 1.18, 1.18 * factor)
+    cat_root.scale = (1.85 * factor, 1.85, 1.85 * factor)
     cat_root.keyframe_insert(data_path="scale", frame=frame)
 
 # Keep the scene in a gentle looping animation range.
@@ -383,22 +384,22 @@ elif "BLENDER_EEVEE" in available_engines:
 camera_data = bpy.data.cameras.new("Ramadan hero preview camera")
 camera = bpy.data.objects.new("Ramadan hero preview camera", camera_data)
 scene.collection.objects.link(camera)
-camera.location = (0.0, -9.2, 4.0)
-target = Vector((0.0, -0.05, 1.15))
+camera.location = (0.0, -15.0, 6.2)
+target = Vector((0.0, -0.05, 1.45))
 camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
-camera_data.lens = 48
+camera_data.lens = 40
 scene.camera = camera
 key_data = bpy.data.lights.new("Preview softbox key", "AREA")
-key_data.energy = 850
+key_data.energy = 1450
 key_data.shape = "DISK"
 key_data.size = 7.0
 key_obj = bpy.data.objects.new("Preview softbox key", key_data)
 scene.collection.objects.link(key_obj)
-key_obj.location = (0.0, -4.5, 6.0)
-key_obj.rotation_euler = (Vector((0.0, 0.0, 0.8)) - key_obj.location).to_track_quat("-Z", "Y").to_euler()
+key_obj.location = (0.0, -7.0, 8.0)
+key_obj.rotation_euler = (Vector((0.0, 0.0, 1.0)) - key_obj.location).to_track_quat("-Z", "Y").to_euler()
 scene.render.resolution_x = 1920
 scene.render.resolution_y = 1080
-scene.render.resolution_percentage = 75
+scene.render.resolution_percentage = 60
 scene.render.image_settings.file_format = "PNG"
 scene.render.filepath = os.path.join(ROOT, "ramadan-3d-preview.png")
 bpy.ops.render.render(write_still=True)
