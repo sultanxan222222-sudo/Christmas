@@ -227,6 +227,45 @@ for i in range(10):
 star = extruded_polygon("Golden five-point star", star_points, 0.07, gold_light, (2.56, -0.3, 2.30))
 star.rotation_euler.x = math.radians(90)
 
+# Hand-finished 3D brass detailing around both lantern glass chambers:
+# engraved collars, eight structural ribs, a crown and a small finial.
+def decorate_lantern(cx, cy):
+    for z, radius, minor in [(0.155, 0.125, 0.009), (0.335, 0.125, 0.009),
+                             (0.185, 0.105, 0.004), (0.315, 0.105, 0.004)]:
+        bpy.ops.mesh.primitive_torus_add(
+            major_segments=48, minor_segments=10,
+            major_radius=radius, minor_radius=minor,
+            location=(cx, cy, z)
+        )
+        ring = bpy.context.object
+        ring.name = "Lantern • turned brass collar"
+        ring.data.materials.append(gold)
+    for i in range(8):
+        angle = 2 * math.pi * i / 8
+        x = cx + 0.112 * math.cos(angle)
+        y = cy + 0.112 * math.sin(angle)
+        bpy.ops.mesh.primitive_cylinder_add(
+            vertices=12, radius=0.0045, depth=0.155,
+            location=(x, y, 0.25)
+        )
+        rib = bpy.context.object
+        rib.name = "Lantern • brass glass guard rib"
+        rib.data.materials.append(gold_light)
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=12, radius=0.025,
+                                         location=(cx, cy, 0.365))
+    crown = bpy.context.object
+    crown.name = "Lantern • polished crown"
+    crown.scale = (1.5, 1.5, 0.65)
+    crown.data.materials.append(gold)
+    bpy.ops.mesh.primitive_cone_add(vertices=24, radius1=0.018, radius2=0.002,
+                                    depth=0.055, location=(cx, cy, 0.405))
+    finial = bpy.context.object
+    finial.name = "Lantern • pointed finial"
+    finial.data.materials.append(gold_light)
+
+decorate_lantern(-0.98, -2.25)
+decorate_lantern(0.98, -2.25)
+
 # Real flame meshes and warm point lights inside the two glass lanterns.
 def create_flame(name, x, y):
     # The source lantern glass occupies roughly z=0.16..0.34 after scaling.
