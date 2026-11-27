@@ -739,7 +739,7 @@ class MainActivity : Activity() {
         prayerText.text = rows + "\n\n" + line + if (iftarLine.isNotEmpty()) "\n" + iftarLine else ""
     }
 
-
+}
 
 object PrayerAlarm {
     private const val ID = 7511
