@@ -146,6 +146,7 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
             val lightManager = viewer.engine.lightManager
             val lightInstance = lightManager.getInstance(viewer.light)
             lightManager.setIntensity(lightInstance, if (prayerLightOn) 65000f else 8000f)
+            applyPrayerPointLights(viewer, prayerLightOn)
             lightManager.setColor(
                 lightInstance,
                 if (prayerLightOn) 1.0f else 0.58f,
@@ -182,6 +183,18 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
         return true
     }
 
+    private fun applyPrayerPointLights(viewer: ModelViewer, enabled: Boolean) {
+        val asset = viewer.asset ?: return
+        val manager = viewer.engine.lightManager
+        asset.getEntitiesByPrefix("PRAYER_WINDOW_LIGHT_").forEach { entity ->
+            val instance = manager.getInstance(entity)
+            if (instance != 0) {
+                manager.setIntensity(instance, if (enabled) 1200f else 0f)
+                manager.setColor(instance, 1.0f, 0.62f, 0.34f)
+            }
+        }
+    }
+
     fun setPrayerLightOn(enabled: Boolean) {
         prayerLightOn = enabled
         val viewer = modelViewer ?: return
@@ -195,6 +208,7 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
                 if (enabled) 0.78f else 0.72f,
                 if (enabled) 0.52f else 0.82f
             )
+            applyPrayerPointLights(viewer, enabled)
         }.onFailure {
             android.util.Log.w("Ramadan3D", "Prayer lighting update failed", it)
         }
