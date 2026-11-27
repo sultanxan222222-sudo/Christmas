@@ -189,7 +189,6 @@ class RamadanHeroScene(
     private fun drawMosque(c: Canvas, w: Float, h: Float) {
         val glowOn = prayerLightOn()
         val pulse = if (glowOn) 0.82f + 0.18f * sin(phase * 2.1f) else 0.10f
-        val goldAlpha = if (glowOn) (185f + 70f * pulse).toInt() else 92
         val center = w * 0.555f
         val left = w * 0.315f
         val right = w * 0.795f
@@ -301,7 +300,7 @@ class RamadanHeroScene(
         paint.style = Paint.Style.FILL
         // Tower windows glow at prayer time.
         paint.color = if (glowOn) Color.argb((170f + 85f * pulse).toInt().coerceIn(0, 255), 255, 211, 133)
-            else 0x554E805F
+            else 0xFF09231C.toInt()
         if (glowOn) paint.setShadowLayer(h * 0.055f, 0f, 0f, 0xFFFFB94D.toInt())
         c.drawRoundRect(x - width * 0.20f, top + h * 0.065f, x + width * 0.20f, top + h * 0.125f, 3f, 3f, paint)
         c.drawRoundRect(x - width * 0.14f, h * 0.60f, x + width * 0.14f, h * 0.65f, 3f, 3f, paint)
@@ -326,7 +325,7 @@ class RamadanHeroScene(
         paint.color = 0xFF071C18.toInt()
         c.drawRoundRect(rect, width * 0.5f, width * 0.5f, paint)
         val light = if (glowOn) Color.argb((185f + 65f * pulse).toInt().coerceIn(0, 255), 255, 208, 126)
-            else 0x554C6648
+            else 0xFF071A15.toInt()
         paint.color = light
         if (glowOn) paint.setShadowLayer(height * 0.28f, 0f, 0f, 0xFFFFB84F.toInt())
         val inner = RectF(rect.left + width * 0.15f, rect.top + height * 0.10f,
@@ -409,7 +408,7 @@ class RamadanHeroScene(
         c.restore()
 
         // Small cat rests quietly in the shade below the trunk.
-        drawRestingKitten(c, w * 0.205f, h * 0.824f, min(h * 0.118f, w * 0.052f))
+        drawRestingKitten(c, w * 0.205f, h * 0.845f, min(h * 0.118f, w * 0.052f))
     }
 
     private fun drawRestingKitten(c: Canvas, x: Float, ground: Float, s: Float) {
