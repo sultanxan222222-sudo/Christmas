@@ -56,6 +56,7 @@ class MainActivity : Activity() {
     private lateinit var wallpaperView: ImageView
     private val wallpaperPrefs by lazy { getSharedPreferences("christmas_dream_settings", MODE_PRIVATE) }
     private val wallpaperRequestCode = 4107
+    private val musicRequestCode = 4108
     private lateinit var rootFrame: FrameLayout
     private val newYearHandler = Handler(Looper.getMainLooper())
     private var newYearOverlay: NewYearCelebrationView? = null
@@ -90,7 +91,7 @@ class MainActivity : Activity() {
         super.onResume()
         newYearHandler.removeCallbacks(newYearCheck)
         newYearHandler.post(newYearCheck)
-        if (wallpaperPrefs.getBoolean("jingle_music_enabled", true)) musicPlayer.start()
+        if (wallpaperPrefs.getBoolean("jingle_music_enabled", true)) musicPlayer.start(wallpaperPrefs.getString("custom_music_uri", null))
     }
 
     override fun onStart() {
@@ -656,6 +657,10 @@ class MainActivity : Activity() {
         content.addView(info)
         actionCard("🕰   Выбрать дизайн ледяных часов") { chooseClockSkin() }
         actionCard("♫   Фоновая музыка: " + if (wallpaperPrefs.getBoolean("jingle_music_enabled", true)) "ВКЛ" else "ВЫКЛ") { toggleMusic() }
+        actionCard("♫   Выбрать свою фоновую музыку") { chooseMusic() }
+        actionCard("↺   Вернуть встроенную музыку") { resetMusic() }
+        val selectedTrack = wallpaperPrefs.getString("custom_music_uri", null)
+        content.addView(label(if (selectedTrack == null) "Сейчас: встроенная праздничная мелодия" else "Сейчас: выбран ваш аудиофайл", 11f, ivory).apply { setPadding(dp(4), dp(3), 0, dp(5)) })
         actionCard("🎆   Новогодний сюрприз: " + if (wallpaperPrefs.getBoolean("new_year_enabled", true)) "ВКЛ" else "ВЫКЛ") { toggleNewYear() }
         actionCard("🖼   Выбрать свой фон") { chooseWallpaper() }
         actionCard("↺   Вернуть праздничный фон") { resetWallpaper() }
@@ -682,6 +687,26 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun chooseMusic() {
+        val picker = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "audio/*"
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+        }
+        try { startActivityForResult(picker, musicRequestCode) }
+        catch (_: Exception) {
+            android.widget.Toast.makeText(this, "Не удалось открыть выбор аудиофайла", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun resetMusic() {
+        wallpaperPrefs.edit().remove("custom_music_uri").apply()
+        musicPlayer.stop()
+        if (wallpaperPrefs.getBoolean("jingle_music_enabled", true)) musicPlayer.start()
+        render()
+        android.widget.Toast.makeText(this, "Встроенная праздничная музыка восстановлена", android.widget.Toast.LENGTH_SHORT).show()
+    }
+
     private fun resetWallpaper() {
         wallpaperPrefs.edit().remove("custom_wallpaper_uri").apply()
         setDefaultWallpaper()
@@ -691,8 +716,23 @@ class MainActivity : Activity() {
     @Deprecated("Deprecated in Android API; kept for broad device compatibility")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != wallpaperRequestCode || resultCode != RESULT_OK) return
+        if (resultCode != RESULT_OK) return
         val uri = data?.data ?: return
+        if (requestCode == musicRequestCode) {
+            try {
+                val permission = data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION
+                contentResolver.takePersistableUriPermission(uri, permission)
+                wallpaperPrefs.edit().putString("custom_music_uri", uri.toString()).apply()
+                musicPlayer.stop()
+                if (wallpaperPrefs.getBoolean("jingle_music_enabled", true)) musicPlayer.start(uri.toString())
+                render()
+                android.widget.Toast.makeText(this, "Ваша музыка установлена", android.widget.Toast.LENGTH_SHORT).show()
+            } catch (_: Exception) {
+                android.widget.Toast.makeText(this, "Не удалось сохранить доступ к этому аудиофайлу. Выберите файл из памяти устройства.", android.widget.Toast.LENGTH_LONG).show()
+            }
+            return
+        }
+        if (requestCode != wallpaperRequestCode) return
         try {
             val permission = data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION
             contentResolver.takePersistableUriPermission(uri, permission)
