@@ -268,7 +268,6 @@ scene.frame_start = 1
 scene.frame_end = 60
 scene.render.fps = 30
 scene.world.color = (0.006, 0.012, 0.018)
-scene.render.engine = "BLENDER_EEVEE_NEXT"
 scene.render.resolution_x = 1920
 scene.render.resolution_y = 1080
 scene.render.resolution_percentage = 100
