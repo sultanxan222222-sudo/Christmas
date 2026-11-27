@@ -90,51 +90,71 @@ class RamadanHeroScene(
     }
 
     private fun drawFlags(c: Canvas, w: Float, h: Float) {
-        val count = if (w > 760f) 7 else 3
-        val start = w * 0.105f
-        val end = w * 0.765f
+        val count = if (w > 760f) 7 else 5
+        val start = w * 0.055f
+        val end = w * 0.945f
         val ropeY = h * 0.105f
-        paint.color = 0xFFB88A49.toInt()
-        paint.strokeWidth = maxOf(1.2f, h * 0.003f)
+        paint.color = 0xFFD8B36B.toInt()
+        paint.strokeWidth = maxOf(1.4f, h * 0.0035f)
         paint.style = Paint.Style.STROKE
         val rope = Path().apply {
             moveTo(start, ropeY)
-            quadTo(w * 0.43f, ropeY + h * 0.065f, end, ropeY)
+            quadTo(w * 0.50f, ropeY + h * 0.052f, end, ropeY)
         }
         c.drawPath(rope, paint)
         paint.style = Paint.Style.FILL
-
-        val spacing = if (count > 1) (end - start) / (count - 1) else 0f
-        val flagW = if (count == 7) w * 0.075f else w * 0.165f
-        val flagH = h * 0.145f
+        val spacing = (end - start) / (count - 1)
         repeat(count) { i ->
             val x = start + spacing * i
-            val y = ropeY + h * 0.025f + sin(phase * 1.2f + i * 0.75f) * h * 0.006f
-            val sway = sin(phase * 1.15f + i * 0.8f) * 5.2f
+            val wave = phase * 1.15f + i * 0.72f
+            val y = ropeY + h * 0.022f + sin(wave) * h * 0.004f
+            val centerBanner = i == count / 2
+            val fw = if (centerBanner) w * 0.29f else w * (if (count == 7) 0.075f else 0.105f)
+            val fh = if (centerBanner) h * 0.18f else h * 0.125f
+            val wind = sin(wave) * fh * 0.075f
             c.save()
-            c.rotate(sway, x, y)
-            val flag = Path().apply {
-                moveTo(x - flagW * 0.5f, y)
-                lineTo(x + flagW * 0.5f, y)
-                lineTo(x + flagW * 0.42f, y + flagH * 0.86f)
-                lineTo(x, y + flagH)
-                lineTo(x - flagW * 0.42f, y + flagH * 0.86f)
+            val cloth = Path().apply {
+                moveTo(x - fw * 0.5f, y)
+                cubicTo(x - fw * 0.18f, y + fh * 0.025f + wind, x + fw * 0.20f, y - fh * 0.012f - wind, x + fw * 0.5f, y)
+                if (centerBanner) {
+                    lineTo(x + fw * 0.47f, y + fh * 0.78f)
+                    cubicTo(x + fw * 0.26f, y + fh * 0.91f + wind, x - fw * 0.25f, y + fh * 0.91f - wind, x - fw * 0.47f, y + fh * 0.78f)
+                } else {
+                    cubicTo(x + fw * 0.43f, y + fh * 0.56f + wind, x + fw * 0.12f, y + fh * 0.87f - wind, x, y + fh)
+                    cubicTo(x - fw * 0.14f, y + fh * 0.82f + wind, x - fw * 0.42f, y + fh * 0.55f - wind, x - fw * 0.5f, y)
+                }
                 close()
             }
-            paint.color = 0xFF0B5A40.toInt()
-            paint.setShadowLayer(5f, 0f, 2f, 0x55000000)
-            c.drawPath(flag, paint)
+            paint.color = 0xFF073F30.toInt()
+            paint.setShadowLayer(6f, 0f, 3f, 0x99000000.toInt())
+            c.drawPath(cloth, paint)
             paint.clearShadowLayer()
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = maxOf(1f, h * 0.003f)
             paint.color = 0xFFD8B36B.toInt()
-            c.drawPath(flag, paint)
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = maxOf(1f, h * 0.0028f)
+            c.drawPath(cloth, paint)
             paint.style = Paint.Style.FILL
+            // Subtle moving satin highlight gives the cloth depth.
+            paint.color = 0x4478C49A
+            val fold = Path().apply {
+                moveTo(x - fw * 0.30f, y + fh * 0.10f)
+                quadTo(x - fw * 0.06f, y + fh * 0.43f + wind, x - fw * 0.20f, y + fh * 0.75f)
+                quadTo(x - fw * 0.02f, y + fh * 0.53f, x - fw * 0.30f, y + fh * 0.10f)
+                close()
+            }
+            c.drawPath(fold, paint)
             paint.color = 0xFFFFD98A.toInt()
             paint.textAlign = Paint.Align.CENTER
-            paint.typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
-            paint.textSize = h * 0.031f
-            c.drawText("РАМАДАН", x, y + flagH * 0.56f + paint.textSize * 0.34f, paint)
+            paint.typeface = android.graphics.Typeface.create("serif", android.graphics.Typeface.BOLD)
+            if (centerBanner) {
+                paint.textSize = h * 0.052f
+                c.drawText("РАМАДАН", x, y + fh * 0.53f, paint)
+                paint.textSize = h * 0.018f
+                c.drawText("✦  ☾  ✦", x, y + fh * 0.73f, paint)
+            } else {
+                paint.textSize = h * 0.026f
+                c.drawText("☾", x, y + fh * 0.59f, paint)
+            }
             c.restore()
         }
     }
@@ -490,51 +510,105 @@ class RamadanHeroScene(
     }
 
     private fun drawLantern(c: Canvas, x: Float, bottom: Float, size: Float, offset: Float) {
-        val sway = sin(phase * 0.65f + offset) * size * 0.035f
+        val flicker = 0.82f + 0.18f * sin(phase * 3.7f + offset)
+        val flameLean = sin(phase * 2.8f + offset) * size * 0.035f
         val y = bottom - size
+        val width = size * 0.66f
+        val left = x - width * 0.5f
+        val right = x + width * 0.5f
+
+        // Warm pool of light on the stone floor.
+        paint.color = Color.argb((34f * flicker).toInt(), 255, 151, 54)
+        paint.setShadowLayer(size * 0.34f, 0f, size * 0.08f, 0xFFFF9C42.toInt())
+        c.drawOval(left - size * 0.28f, bottom - size * 0.12f, right + size * 0.28f, bottom + size * 0.07f, paint)
+        paint.clearShadowLayer()
+
         c.save()
-        c.rotate(sin(phase * 0.55f + offset) * 2.0f, x, bottom)
-        // Handle.
-        paint.color = 0xFFC79C5D.toInt()
+        c.rotate(sin(phase * 0.42f + offset) * 0.65f, x, bottom)
+        // Heavy cast-brass base, with layered bevels and a dark contact shadow.
+        paint.color = 0x99000000.toInt()
+        c.drawOval(left - size * 0.10f, bottom - size * 0.015f, right + size * 0.10f, bottom + size * 0.06f, paint)
+        paint.color = 0xFF5C3D22.toInt()
+        c.drawRoundRect(left - size * 0.09f, bottom - size * 0.11f, right + size * 0.09f, bottom + size * 0.005f, size * 0.07f, size * 0.07f, paint)
+        paint.color = 0xFFE0B86E.toInt()
+        c.drawRoundRect(left - size * 0.07f, bottom - size * 0.14f, right + size * 0.07f, bottom - size * 0.065f, size * 0.045f, size * 0.045f, paint)
+
+        // Crown and hanging loop.
+        paint.color = 0xFFB88A4C.toInt()
+        c.drawOval(x - size * 0.19f, y - size * 0.055f, x + size * 0.19f, y + size * 0.12f, paint)
+        paint.color = 0xFFFFD98A.toInt()
         paint.style = Paint.Style.STROKE
-        paint.strokeWidth = maxOf(1f, size * 0.045f)
-        c.drawArc(RectF(x - size * 0.18f, y - size * 0.17f, x + size * 0.18f, y + size * 0.18f),
-            180f, 180f, false, paint)
+        paint.strokeWidth = maxOf(1.3f, size * 0.025f)
+        c.drawArc(RectF(x - size * 0.15f, y - size * 0.22f, x + size * 0.15f, y + size * 0.07f), 180f, 180f, false, paint)
         paint.style = Paint.Style.FILL
-        // Brass body.
-        val body = RectF(x - size * 0.31f + sway, y + size * 0.08f, x + size * 0.31f + sway, bottom)
-        paint.color = 0xFF9B713F.toInt()
-        c.drawRoundRect(body, size * 0.08f, size * 0.08f, paint)
-        paint.color = 0xFF193A2D.toInt()
-        c.drawRoundRect(body.left + size * 0.055f, body.top + size * 0.075f,
-            body.right - size * 0.055f, body.bottom - size * 0.075f, size * 0.05f, size * 0.05f, paint)
-        // Moving flame and warm glow.
-        val flamePulse = 0.88f + 0.12f * sin(phase * 3.3f + offset)
+
+        // Faceted brass frame: front panel, side bevels and polished vertical ribs.
+        val body = RectF(left, y + size * 0.10f, right, bottom - size * 0.12f)
+        paint.color = 0xFF6D4828.toInt()
+        c.drawRoundRect(body, size * 0.055f, size * 0.055f, paint)
+        paint.color = 0xFFC99B54.toInt()
+        c.drawRoundRect(RectF(body.left + size * 0.035f, body.top, body.left + size * 0.105f, body.bottom), size * 0.025f, size * 0.025f, paint)
+        paint.color = 0xFF76502D.toInt()
+        c.drawRoundRect(RectF(body.right - size * 0.105f, body.top, body.right - size * 0.035f, body.bottom), size * 0.025f, size * 0.025f, paint)
+        paint.color = 0xFF0A211B.toInt()
+        c.drawRoundRect(RectF(body.left + size * 0.105f, body.top + size * 0.035f, body.right - size * 0.105f, body.bottom - size * 0.035f), size * 0.025f, size * 0.025f, paint)
+
+        // Glass catches the flame and gives the body a translucent, dimensional depth.
+        paint.color = 0x665DAA83
+        c.drawRoundRect(RectF(body.left + size * 0.13f, body.top + size * 0.05f, body.right - size * 0.13f, body.bottom - size * 0.05f), size * 0.025f, size * 0.025f, paint)
+        paint.color = 0x99FFD58A.toInt()
+        paint.strokeWidth = maxOf(1f, size * 0.012f)
+        paint.style = Paint.Style.STROKE
+        c.drawLine(body.left + size * 0.16f, body.top + size * 0.08f, body.left + size * 0.16f, body.bottom - size * 0.08f, paint)
+        c.drawLine(body.right - size * 0.16f, body.top + size * 0.08f, body.right - size * 0.16f, body.bottom - size * 0.08f, paint)
+        c.drawLine(body.left + size * 0.13f, body.centerY(), body.right - size * 0.13f, body.centerY(), paint)
+        paint.style = Paint.Style.FILL
+
+        // Living flame: two nested, independently moving tongues of fire.
         val flame = Path().apply {
-            moveTo(x + sway, y + size * 0.77f)
-            cubicTo(x - size * 0.25f, y + size * 0.58f,
-                x + size * (0.10f + 0.04f * sin(phase * 2f + offset)), y + size * 0.42f,
-                x + sway, y + size * 0.22f)
-            cubicTo(x + size * 0.28f, y + size * 0.50f,
-                x + size * 0.22f, y + size * 0.65f,
-                x + sway, y + size * 0.77f)
+            moveTo(x + flameLean, body.bottom - size * 0.10f)
+            cubicTo(x - size * 0.24f + flameLean, body.bottom - size * 0.30f,
+                x + size * 0.12f + flameLean, body.top + size * 0.35f,
+                x + flameLean * 0.4f, body.top + size * 0.19f)
+            cubicTo(x + size * 0.27f + flameLean, body.top + size * 0.43f,
+                x + size * 0.19f - flameLean, body.bottom - size * 0.27f,
+                x + flameLean, body.bottom - size * 0.10f)
             close()
         }
-        paint.color = 0xFFFF8B32.toInt()
-        paint.setShadowLayer(size * 0.26f * flamePulse, 0f, 0f, 0xFFFF9B3D.toInt())
+        paint.color = 0xFFFF7628.toInt()
+        paint.setShadowLayer(size * 0.30f * flicker, 0f, 0f, 0xFFFF8B36.toInt())
         c.drawPath(flame, paint)
         paint.clearShadowLayer()
+        val innerFlame = Path().apply {
+            moveTo(x + flameLean * 0.35f, body.bottom - size * 0.12f)
+            cubicTo(x - size * 0.10f, body.bottom - size * 0.28f, x + size * 0.10f, body.top + size * 0.42f,
+                x + size * 0.015f, body.top + size * 0.36f)
+            cubicTo(x + size * 0.13f, body.top + size * 0.52f, x + size * 0.10f, body.bottom - size * 0.25f,
+                x + flameLean * 0.35f, body.bottom - size * 0.12f)
+            close()
+        }
         paint.color = 0xFFFFE6A0.toInt()
-        c.drawOval(x - size * 0.045f + sway, y + size * 0.42f,
-            x + size * 0.055f + sway, y + size * 0.72f, paint)
-        // Brass lattice highlights.
-        paint.color = 0xFFD5B16E.toInt()
-        paint.strokeWidth = maxOf(1f, size * 0.025f)
+        c.drawPath(innerFlame, paint)
+
+        // Fine ornamental lattice and a bright polished front edge.
+        paint.color = 0xFFDDB76F.toInt()
+        paint.strokeWidth = maxOf(1f, size * 0.018f)
         paint.style = Paint.Style.STROKE
-        c.drawLine(body.left + size * 0.12f, body.top, body.left + size * 0.12f, body.bottom, paint)
-        c.drawLine(body.right - size * 0.12f, body.top, body.right - size * 0.12f, body.bottom, paint)
-        c.drawLine(body.left, body.centerY(), body.right, body.centerY(), paint)
+        val midX = x
+        c.drawLine(midX, body.top + size * 0.08f, midX, body.bottom - size * 0.08f, paint)
+        c.drawLine(body.left + size * 0.12f, body.top + size * 0.08f, body.right - size * 0.12f, body.bottom - size * 0.08f, paint)
+        c.drawLine(body.right - size * 0.12f, body.top + size * 0.08f, body.left + size * 0.12f, body.bottom - size * 0.08f, paint)
+        paint.color = 0xFFFFE2A0.toInt()
+        paint.strokeWidth = maxOf(1.1f, size * 0.022f)
+        c.drawLine(body.left + size * 0.02f, body.top + size * 0.04f, body.left + size * 0.02f, body.bottom - size * 0.04f, paint)
+        c.drawLine(body.right - size * 0.02f, body.top + size * 0.04f, body.right - size * 0.02f, body.bottom - size * 0.04f, paint)
         paint.style = Paint.Style.FILL
+
+        // Ornate top cap completes the jewel-like lantern silhouette.
+        paint.color = 0xFF9A6A36.toInt()
+        c.drawRoundRect(left - size * 0.045f, y + size * 0.055f, right + size * 0.045f, y + size * 0.15f, size * 0.045f, size * 0.045f, paint)
+        paint.color = 0xFFFFD98A.toInt()
+        c.drawRect(left + size * 0.04f, y + size * 0.08f, right - size * 0.04f, y + size * 0.105f, paint)
         c.restore()
     }
 }
