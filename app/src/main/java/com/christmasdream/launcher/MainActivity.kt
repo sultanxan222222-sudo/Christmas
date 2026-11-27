@@ -40,8 +40,7 @@ class MainActivity : Activity() {
             }
             if (::prayerText.isInitialized) updateNextPrayer()
             heroScene?.setPrayerLightOn(isMinaretLit())
-            heroScene?.setPrayerLightOn(isMinaretLit())
-        heroScene?.invalidate()
+            heroScene?.invalidate()
             handler.postDelayed(this, 1000)
         }
     }
@@ -63,6 +62,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         if (prefs.getBoolean("nasheed_enabled", true)) startNasheed()
+        heroScene?.setPrayerLightOn(isMinaretLit())
         heroScene?.invalidate()
     }
 
