@@ -118,6 +118,7 @@ class MainActivity : Activity() {
 
     private fun buildScreen() {
         root = FrameLayout(this)
+        heroScene = null
         root.addView(RamadanSky(this), FrameLayout.LayoutParams(-1, -1))
         val shade = View(this).apply { setBackgroundColor(0x3300120D) }
         root.addView(shade, FrameLayout.LayoutParams(-1, -1))
