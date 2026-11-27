@@ -784,7 +784,7 @@ class MainActivity : Activity() {
         val appName = info.loadLabel(packageManager).toString()
         val current = (wallpaperPrefs.getStringSet("home_card_packages", emptySet()) ?: emptySet()).toMutableSet()
         val isPinned = pkg in current
-        val actions = if (isPinned) {
+        val actions = if (isPinned || homeCardsOnly) {
             arrayOf("Убрать карточку с главного экрана", "Открыть приложение")
         } else {
             arrayOf("Добавить карточку на главный экран", "Открыть приложение")
@@ -954,9 +954,10 @@ class MainActivity : Activity() {
         if (longAction != null) {
             card.contentDescription = "$value. Удерживайте, чтобы убрать карточку с главного экрана."
             card.setOnLongClickListener {
+                val sectionName = value.removePrefix("✦  ")
                 AlertDialog.Builder(this)
                     .setTitle("Карточка раздела")
-                    .setMessage("Убрать «\${value.removePrefix("✦  ")}» с главного экрана? Сам раздел останется доступен в меню.")
+                    .setMessage("Убрать «$sectionName» с главного экрана? Сам раздел останется доступен в меню.")
                     .setPositiveButton("Убрать") { _, _ -> longAction() }
                     .setNegativeButton("Отмена", null)
                     .show()
