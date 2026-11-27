@@ -572,33 +572,58 @@ class MainActivity : Activity() {
         apps.chunked(columns).forEach { group ->
             val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
             group.forEach { info ->
+                val appName = info.loadLabel(packageManager).toString()
                 val card = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
                     gravity = Gravity.CENTER
-                    background = glass(18)
-                    setPadding(dp(5), dp(9), dp(5), dp(9))
+                    background = glass(19)
+                    setPadding(dp(7), dp(10), dp(7), dp(8))
                     isFocusable = true
+                    isFocusableInTouchMode = false
                     isClickable = true
+                    elevation = dp(3).toFloat()
+                    contentDescription = "Открыть приложение $appName"
+                }
+                val iconFrame = FrameLayout(this).apply {
+                    background = GradientDrawable(
+                        GradientDrawable.Orientation.TL_BR,
+                        intArrayOf(0xB85B3442.toInt(), 0xA52B2634.toInt())
+                    ).apply {
+                        cornerRadius = dp(15).toFloat()
+                        setStroke(dp(1), 0x77E7C88D)
+                    }
                 }
                 val icon = try { info.loadIcon(packageManager) } catch (_: Exception) { null }
-                card.addView(ImageView(this).apply {
+                iconFrame.addView(ImageView(this).apply {
                     if (icon != null) setImageDrawable(icon)
                     scaleType = ImageView.ScaleType.FIT_CENTER
-                }, LinearLayout.LayoutParams(dp(42), dp(42)))
-                card.addView(label(info.loadLabel(packageManager).toString(), 11f, white, true).apply {
+                    contentDescription = appName
+                }, FrameLayout.LayoutParams(dp(42), dp(42), Gravity.CENTER))
+                card.addView(iconFrame, LinearLayout.LayoutParams(dp(54), dp(54)).apply {
+                    bottomMargin = dp(7)
+                })
+                card.addView(label(appName, 11f, ivory, true).apply {
                     gravity = Gravity.CENTER
                     maxLines = 2
+                    minLines = 2
                     textAlignment = View.TEXT_ALIGNMENT_CENTER
-                })
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                }, LinearLayout.LayoutParams(-1, -2))
                 card.setOnClickListener { launch(info.activityInfo.packageName) }
                 card.setOnFocusChangeListener { v, focused ->
-                    v.background = glass(18, focused)
-                    v.scaleX = if (focused) 1.04f else 1f
-                    v.scaleY = if (focused) 1.04f else 1f
+                    v.background = glass(19, focused)
+                    v.animate().scaleX(if (focused) 1.045f else 1f)
+                        .scaleY(if (focused) 1.045f else 1f)
+                        .translationZ(if (focused) dp(5).toFloat() else 0f)
+                        .setDuration(140L).start()
                 }
-                row.addView(card, LinearLayout.LayoutParams(0, dp(94), 1f).apply { rightMargin = dp(5); bottomMargin = dp(7) })
+                row.addView(card, LinearLayout.LayoutParams(0, dp(112), 1f).apply {
+                    rightMargin = dp(5)
+                    leftMargin = dp(2)
+                    bottomMargin = dp(8)
+                })
             }
-            if (group.size < columns) row.addView(View(this), LinearLayout.LayoutParams(0, dp(94), (columns - group.size).toFloat()))
+            if (group.size < columns) row.addView(View(this), LinearLayout.LayoutParams(0, dp(112), (columns - group.size).toFloat()))
             content.addView(row)
         }
     }
