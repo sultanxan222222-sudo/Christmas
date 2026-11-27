@@ -7,7 +7,7 @@ android {
     compileSdk = 36
     defaultConfig {
         applicationId = "com.ramadan.dream.launcher"
-        minSdk = 23
+        minSdk = 24
         targetSdk = 28
         versionCode = 4
         versionName = "1.3.0"
@@ -28,4 +28,11 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     packaging { jniLibs { useLegacyPackaging = true } }
+}
+
+
+dependencies {
+    implementation("com.google.android.filament:filament-android:1.77.0")
+    implementation("com.google.android.filament:gltfio-android:1.77.0")
+    implementation("com.google.android.filament:filament-utils-android:1.77.0")
 }
