@@ -593,6 +593,14 @@ class MainActivity : Activity() {
             else -> "ВСЕ УСТАНОВЛЕННЫЕ ПРИЛОЖЕНИЯ"
         }
         heading(subtitle)
+        if (section == "Фильмы") {
+            actionCard("🎬   Открыть Christmas Cinema — выбрать фильм") {
+                startActivity(Intent(this, ChristmasCinemaActivity::class.java))
+            }
+            content.addView(label("Поддерживаются видео с USB-флешки и из памяти устройства. Выбирай несколько файлов, чтобы создать очередь просмотра.", 12f, ivory).apply {
+                setPadding(dp(4), dp(6), dp(4), dp(10))
+            })
+        }
         val apps = installedApps().filter { app ->
             val name = app.loadLabel(packageManager).toString().lowercase(Locale.getDefault())
             when (section) {
