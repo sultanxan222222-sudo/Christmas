@@ -516,7 +516,7 @@ class MainActivity : Activity() {
     private fun toggleMusic() {
         val enabled = !wallpaperPrefs.getBoolean("jingle_music_enabled", true)
         wallpaperPrefs.edit().putBoolean("jingle_music_enabled", enabled).apply()
-        if (enabled && !isFinishing) musicPlayer.start() else musicPlayer.stop()
+        if (enabled && !isFinishing) musicPlayer.start(wallpaperPrefs.getString("custom_music_uri", null)) else musicPlayer.stop()
         render()
     }
 
