@@ -47,8 +47,8 @@ class MainActivity : Activity() {
     private val white = Color.rgb(255, 255, 250)
     private val ivory = Color.rgb(255, 247, 235)
     private val gold = Color.rgb(255, 211, 125)
-    private val sections = listOf("Главная", "Фильмы", "ТВ", "Игры", "Приложения", "Музыка", "Настройки")
-    private val symbols = mapOf("Главная" to "⌂", "Фильмы" to "🎬", "ТВ" to "📺", "Игры" to "🎮", "Приложения" to "▦", "Музыка" to "♫", "Настройки" to "⚙")
+    private val sections = listOf("Главная", "Галерея", "Фильмы", "ТВ", "Игры", "Приложения", "Музыка", "Карточки", "Настройки")
+    private val symbols = mapOf("Главная" to "⌂", "Фильмы" to "🎬", "ТВ" to "📺", "Игры" to "🎮", "Приложения" to "▦", "Галерея" to "▧", "Карточки" to "＋", "Музыка" to "♫", "Настройки" to "⚙")
     private var selected = "Главная"
     private lateinit var content: LinearLayout
     private lateinit var nav: LinearLayout
@@ -393,6 +393,8 @@ class MainActivity : Activity() {
         when (selected) {
             "Главная" -> home()
             "Настройки" -> settings()
+            "Карточки" -> cardsManager()
+            "Галерея" -> gallerySection()
             else -> appSection(selected)
         }
     }
@@ -443,6 +445,8 @@ class MainActivity : Activity() {
             Triple("ТВ", "▤", "Ваши приложения для просмотра"),
             Triple("Игры", "♟", "Время для весёлых побед"),
             Triple("Приложения", "▦", "Вся ваша коллекция"),
+            Triple("Галерея", "▧", "Фотографии и изображения"),
+            Triple("Карточки", "＋", "Настроить главный экран"),
             Triple("Музыка", "♫", "Ваш праздничный MP3-плеер"),
             Triple("Настройки", "⚙", "Оформление и управление")
         )
@@ -476,7 +480,8 @@ class MainActivity : Activity() {
             content.addView(row)
         }
         heading("МОИ КАРТОЧКИ")
-        content.addView(label("Добавляй приложения на главный экран или убирай карточки без удаления самих приложений.", 11f, ivory))
+        content.addView(label("Добавляй приложения и разделы на главный экран или убирай карточки без удаления самих приложений.", 11f, ivory))
+        actionCard("⚙  Управление всеми карточками") { selected = "Карточки"; render() }
         actionCard("＋  Добавить карточку приложения") { manageHomeCards(true) }
         actionCard("−  Удалить карточку приложения") { manageHomeCards(false) }
         actionCard("＋  Добавить карточку раздела") { manageHomeSections(true) }
@@ -487,6 +492,54 @@ class MainActivity : Activity() {
         pinnedSections.forEach { section -> actionCard("✦  $section") { if (section == "Музыка") startActivity(Intent(this, ChristmasMusicActivity::class.java)) else { selected = section; render() } } }
         heading("БЫСТРЫЙ ДОСТУП")
         appGrid(installedApps().take(if (wide) 12 else 8))
+    }
+
+    private fun cardsManager() {
+        heading("УПРАВЛЕНИЕ КАРТОЧКАМИ")
+        content.addView(label("Здесь можно добавлять и убирать карточки приложений и разделов. Удаление карточки не удаляет само приложение.", 12f, ivory))
+        actionCard("＋  ДОБАВИТЬ карточку приложения") { manageHomeCards(true) }
+        actionCard("−  УБРАТЬ карточку приложения") { manageHomeCards(false) }
+        actionCard("＋  ДОБАВИТЬ карточку раздела") { manageHomeSections(true) }
+        actionCard("−  УБРАТЬ карточку раздела") { manageHomeSections(false) }
+        heading("УЖЕ ДОБАВЛЕНО")
+        val pins = pinnedApps()
+        if (pins.isEmpty()) content.addView(label("Карточки приложений пока не добавлены.", 12f, ivory))
+        else appGrid(pins)
+        val pinnedSections = wallpaperPrefs.getStringSet("home_card_sections", emptySet()) ?: emptySet()
+        if (pinnedSections.isEmpty()) content.addView(label("Карточки разделов пока не добавлены.", 12f, ivory))
+        else pinnedSections.sorted().forEach { section -> actionCard("✦  $section") { selected = section; render() } }
+    }
+
+    private fun gallerySection() {
+        heading("ВАША ГАЛЕРЕЯ")
+        content.addView(label("Откройте фотографии и изображения из памяти телевизора или с подключённого USB-накопителя.", 12f, ivory))
+        val galleryApps = installedApps().filter { info ->
+            val n = (info.loadLabel(packageManager).toString() + " " + info.activityInfo.packageName).lowercase(Locale.getDefault())
+            listOf("gallery", "photos", "photo", "галере", "фото", "image").any { n.contains(it) }
+        }
+        if (galleryApps.isNotEmpty()) {
+            heading("УСТАНОВЛЕННЫЕ ПРИЛОЖЕНИЯ")
+            appGrid(galleryApps)
+        }
+        actionCard("▧  ОТКРЫТЬ ФОТОГАЛЕРЕЮ") { openGalleryPicker() }
+        actionCard("▧  Выбрать изображение из памяти или USB") { openGalleryPicker() }
+        content.addView(label("Если отдельное приложение «Галерея» не установлено или скрыто производителем телевизора, Android откроет системный выбор изображений. Это позволит просматривать доступные фотографии.", 11f, ivory))
+    }
+
+    private fun openGalleryPicker() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+            type = "image/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+        }
+        try {
+            startActivity(Intent.createChooser(intent, "Открыть галерею"))
+        } catch (_: Exception) {
+            try {
+                startActivity(Intent(Intent.ACTION_PICK).apply { type = "image/*" })
+            } catch (_: Exception) {
+                android.widget.Toast.makeText(this, "На телевизоре нет доступного приложения для просмотра изображений", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     private fun pinnedApps(): List<android.content.pm.ResolveInfo> {
