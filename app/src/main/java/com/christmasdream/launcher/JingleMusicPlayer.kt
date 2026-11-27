@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Build
 
 /**
@@ -66,12 +67,12 @@ class JingleMusicPlayer(context: Context) {
     }
 
     @Synchronized
-    fun start() {
+    fun start(customUri: String? = null) {
         try {
             if (!requestFocus()) return
             var current = player
             if (current == null) {
-                current = MediaPlayer.create(appContext, R.raw.jingle_bells) ?: return
+                current = MediaPlayer()
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                     current.setAudioAttributes(
                         AudioAttributes.Builder()
@@ -80,8 +81,16 @@ class JingleMusicPlayer(context: Context) {
                             .build()
                     )
                 }
+                if (customUri.isNullOrBlank()) {
+                    val afd = appContext.resources.openRawResourceFd(R.raw.jingle_bells) ?: return
+                    current.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                    afd.close()
+                } else {
+                    current.setDataSource(appContext, Uri.parse(customUri))
+                }
                 current.isLooping = true
                 current.setVolume(0.20f, 0.20f)
+                current.prepare()
                 player = current
             }
             if (!current.isPlaying) current.start()
