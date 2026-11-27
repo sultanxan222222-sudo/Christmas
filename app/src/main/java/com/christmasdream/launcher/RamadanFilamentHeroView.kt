@@ -99,6 +99,7 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
         surfaceView.addOnAttachStateChangeListener(object : OnAttachStateChangeListener {
             override fun onViewAttachedToWindow(v: android.view.View) = Unit
             override fun onViewDetachedFromWindow(v: android.view.View) {
+                stopRendering()
                 val engine = modelViewer?.engine
                 ambientLight?.let { light -> runCatching { engine?.destroyIndirectLight(light) } }
                 nightSkybox?.let { sky -> runCatching { engine?.destroySkybox(sky) } }
@@ -127,15 +128,17 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
             viewer.cameraFocalLength = 34f
 
             // Cool low-level ambient illumination keeps PBR stone, glass and brass readable at night.
-            ambientLight = IndirectLight.Builder()
+            val createdAmbient = IndirectLight.Builder()
                 .irradiance(1, floatArrayOf(0.42f, 0.50f, 0.58f))
                 .intensity(20000f)
                 .build(viewer.engine)
-            nightSkybox = Skybox.Builder()
+            ambientLight = createdAmbient
+            val createdSkybox = Skybox.Builder()
                 .color(0.006f, 0.018f, 0.024f, 1.0f)
                 .build(viewer.engine)
-            viewer.scene.indirectLight = ambientLight
-            viewer.scene.skybox = nightSkybox
+            nightSkybox = createdSkybox
+            viewer.scene.indirectLight = createdAmbient
+            viewer.scene.skybox = createdSkybox
 
             // Night-time baseline; prayer time raises the warm architectural illumination.
             val lightManager = viewer.engine.lightManager
