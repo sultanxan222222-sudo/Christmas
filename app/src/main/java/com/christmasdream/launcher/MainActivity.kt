@@ -318,41 +318,68 @@ class MainActivity : Activity() {
     }
 
     private fun showOverflowMenu(anchor: View) {
-        val popup = PopupMenu(this, anchor)
-        popup.menu.add(0, 1, 0, "Мои плитки на главной")
-        popup.menu.add(0, 2, 1, "Календарь Хиджры")
-        popup.menu.add(0, 3, 2, "Азан и звуки")
-        popup.menu.add(0, 4, 3, "Фоновый нашид: " + if (prefs.getBoolean("nasheed_enabled", true)) "ВКЛ" else "ВЫКЛ")
-        popup.menu.add(0, 5, 4, "Выбрать котёнка")
-        popup.menu.add(0, 6, 5, "Стиль часов")
-        popup.menu.add(0, 7, 6, "Настройки лаунчера")
-        popup.menu.add(0, 8, 7, "Музыкальные приложения")
-        popup.menu.add(0, 9, 8, "Кино и видео")
-        popup.menu.add(0, 10, 9, "Игры")
-        popup.menu.add(0, 11, 10, "Все приложения")
-        popup.menu.add(0, 12, 11, "На главную")
-        popup.setOnMenuItemClickListener { item ->
-            when (item.itemId) {
-                1 -> showHomeTilesManager()
-                2 -> openSection("Календарь")
-                3 -> soundSettings()
-                4 -> toggleNasheed()
-                5 -> chooseCat()
-                6 -> {
-                    prefs.edit().putInt("clock", (prefs.getInt("clock", 2) + 1) % 4).apply()
-                    buildScreen()
-                    Toast.makeText(this, "Стиль часов изменён", Toast.LENGTH_SHORT).show()
-                }
-                7 -> openSection("Настройки")
-                8 -> openSection("Музыка")
-                9 -> openSection("Кино")
-                10 -> openSection("Игры")
-                11 -> openSection("Приложения")
-                12 -> openSection("Главная")
+        val items = listOf(
+            "▦   МОИ ПЛИТКИ НА ГЛАВНОЙ" to { showHomeTilesManager() },
+            "☾   КАЛЕНДАРЬ ХИДЖРЫ" to { openSection("Календарь") },
+            "◖   АЗАН И ЗВУКИ" to { soundSettings() },
+            "♫   ФОНОВЫЙ НАШИД: " + if (prefs.getBoolean("nasheed_enabled", true)) "ВКЛ" else "ВЫКЛ" to { toggleNasheed() },
+            "♧   ВЫБРАТЬ КОТЁНКА" to { chooseCat() },
+            "◷   СТИЛЬ ЧАСОВ" to {
+                prefs.edit().putInt("clock", (prefs.getInt("clock", 2) + 1) % 4).apply()
+                buildScreen()
+            },
+            "⚙   НАСТРОЙКИ ЛАУНЧЕРА" to { openSection("Настройки") },
+            "♫   МУЗЫКАЛЬНЫЕ ПРИЛОЖЕНИЯ" to { openSection("Музыка") },
+            "▣   КИНО И ВИДЕО" to { openSection("Кино") },
+            "✧   ИГРЫ" to { openSection("Игры") },
+            "▤   ВСЕ ПРИЛОЖЕНИЯ" to { openSection("Приложения") },
+            "⌂   НА ГЛАВНУЮ" to { openSection("Главная") }
+        )
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                intArrayOf(0xFF174A39.toInt(), 0xFF08251F.toInt(), 0xFF041712.toInt())).apply {
+                cornerRadius = dp(20).toFloat()
+                setStroke(dp(1), 0xFFD8B36B.toInt())
             }
-            true
+            setPadding(dp(9), dp(10), dp(9), dp(10))
         }
-        popup.show()
+        panel.addView(text("РАМАДАН  •  МЕНЮ", 12f, 0xFFFFD98A.toInt(), true).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(8), dp(8), dp(8), dp(12))
+        })
+        items.forEachIndexed { index, item ->
+            val row = text(item.first, 11f, 0xFFEAF7EF.toInt(), true).apply {
+                setPadding(dp(13), dp(11), dp(10), dp(11))
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(12).toFloat()
+                    setColor(0x442C7658)
+                    setStroke(dp(1), 0x5577B994)
+                }
+                isFocusable = true
+                isClickable = true
+                setOnClickListener {
+                    menu.dismiss()
+                    item.second.invoke()
+                }
+                setOnFocusChangeListener { v, focused ->
+                    v.background = GradientDrawable().apply {
+                        cornerRadius = dp(12).toFloat()
+                        setColor(if (focused) 0xFF285F47.toInt() else 0x442C7658)
+                        setStroke(dp(if (focused) 2 else 1), if (focused) 0xFFFFD98A.toInt() else 0x5577B994)
+                    }
+                }
+            }
+            panel.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(4) })
+        }
+        val scroller = ScrollView(this).apply { isFillViewport = false; addView(panel) }
+        val menu = PopupWindow(scroller, dp(286), dp(440), true).apply {
+            setBackgroundDrawable(GradientDrawable().apply { setColor(0xFF08251F.toInt()); cornerRadius = dp(20).toFloat() })
+            elevation = dp(18).toFloat()
+            isOutsideTouchable = true
+            setOnDismissListener { anchor.isSelected = false }
+        }
+        menu.showAsDropDown(anchor, dp(4), -dp(430), Gravity.START)
     }
 
     private fun openSection(section: String) {
