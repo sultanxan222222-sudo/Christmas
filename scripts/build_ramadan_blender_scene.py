@@ -88,15 +88,35 @@ def tint_mosque(objects):
 
 # Imported high-detail licensed source models.
 mosque_root, mosque_objects = import_group(
-    "mosque_two_minarets.glb", "Emerald Ottoman mosque", 0.052, (0.0, 0.0, 0.0)
+    "mosque_two_minarets.glb", "Emerald Ottoman mosque", 0.068, (0.0, 0.0, 0.0)
 )
 tint_mosque(mosque_objects)
 
+# Two mature broad-canopy trees frame the courtyard and physically anchor the banner rope.
 tree_root, tree_objects = import_group(
-    "broadleaf_canopy_tree.glb", "Blessed-tree-inspired broad canopy", 0.070, (-1.55, 0.15, 0.0)
+    "broadleaf_canopy_tree.glb", "Blessed-tree-inspired left broad canopy", 0.090, (-2.28, -0.48, 0.0)
 )
+tree_right_root, tree_right_objects = import_group(
+    "broadleaf_canopy_tree.glb", "Right banner-anchor broad canopy", 0.090, (2.28, -0.48, 0.0)
+)
+# Improve foliage readability while retaining the source meshes and textures.
+for tree_obj in tree_objects + tree_right_objects:
+    if tree_obj.type == "MESH":
+        for tree_mat in tree_obj.data.materials:
+            if tree_mat and tree_mat.use_nodes:
+                tree_bsdf = tree_mat.node_tree.nodes.get("Principled BSDF")
+                if tree_bsdf:
+                    tree_base = tree_bsdf.inputs.get("Base Color")
+                    if tree_base and not tree_base.is_linked:
+                        rgba = list(tree_base.default_value)
+                        tree_base.default_value = (min(1.0, rgba[0] * 1.65 + 0.025),
+                                                   min(1.0, rgba[1] * 1.65 + 0.025),
+                                                   min(1.0, rgba[2] * 1.65 + 0.025), rgba[3])
+                    tree_rough = tree_bsdf.inputs.get("Roughness")
+                    if tree_rough:
+                        tree_rough.default_value = 0.72
 cat_root, cat_objects = import_group(
-    "sleeping_cat.glb", "Sleeping kitten", 1.18, (-1.22, -0.75, 0.015)
+    "sleeping_cat.glb", "Sleeping kitten • clearly visible hero animal", 1.85, (-1.62, -1.05, 0.02)
 )
 lantern_left_root, lantern_left_objects = import_group(
     "brass_hurricane_lantern.glb", "Left brass lantern", 2.65, (-0.98, -2.25, 0.0)
@@ -125,7 +145,7 @@ curve.bevel_depth = 0.012
 curve.bevel_resolution = 4
 spline = curve.splines.new("BEZIER")
 spline.bezier_points.add(2)
-for bp, co in zip(spline.bezier_points, [(-1.82, -2.55, 2.60), (0, -2.55, 2.47), (1.82, -2.55, 2.60)]):
+for bp, co in zip(spline.bezier_points, [(-2.28, -0.62, 2.42), (0, -0.62, 2.27), (2.28, -0.62, 2.42)]):
     bp.co = co
     bp.handle_left_type = "AUTO"
     bp.handle_right_type = "AUTO"
@@ -145,7 +165,7 @@ def make_flag(index, letter, x):
             wave = 0.055 * math.sin(u * math.pi * 2.2 + index * 0.7) * v
             sag = 0.055 * math.sin(u * math.pi)
             z = 2.47 - v * height + sag * v
-            verts.append((x + (u - 0.5) * width, -2.56 + wave, z))
+            verts.append((x + (u - 0.5) * width, -0.63 + wave, z))
     for iz in range(nz):
         for ix in range(nx):
             a = iz * (nx + 1) + ix
@@ -178,7 +198,7 @@ def make_flag(index, letter, x):
     text_curve.bevel_depth = 0.0015
     text_obj = bpy.data.objects.new("Gold lettering • " + letter, text_curve)
     bpy.context.collection.objects.link(text_obj)
-    text_obj.location = (x, -2.595, 2.47 - height * 0.52)
+    text_obj.location = (x, -0.665, 2.42 - height * 0.52)
     text_obj.rotation_euler = (math.radians(90), 0, 0)
     text_obj.data.materials.append(gold_light)
 
@@ -352,6 +372,37 @@ scene.world.color = (0.006, 0.012, 0.018)
 scene.render.resolution_x = 1920
 scene.render.resolution_y = 1080
 scene.render.resolution_percentage = 100
+
+# Render a real 3D proof image in CI to catch framing and material defects before APK delivery.
+scene = bpy.context.scene
+available_engines = {item.identifier for item in scene.render.bl_rna.properties["engine"].enum_items}
+if "BLENDER_EEVEE_NEXT" in available_engines:
+    scene.render.engine = "BLENDER_EEVEE_NEXT"
+elif "BLENDER_EEVEE" in available_engines:
+    scene.render.engine = "BLENDER_EEVEE"
+camera_data = bpy.data.cameras.new("Ramadan hero preview camera")
+camera = bpy.data.objects.new("Ramadan hero preview camera", camera_data)
+scene.collection.objects.link(camera)
+camera.location = (0.0, -9.2, 4.0)
+target = Vector((0.0, -0.05, 1.15))
+camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
+camera_data.lens = 48
+scene.camera = camera
+key_data = bpy.data.lights.new("Preview softbox key", "AREA")
+key_data.energy = 850
+key_data.shape = "DISK"
+key_data.size = 7.0
+key_obj = bpy.data.objects.new("Preview softbox key", key_data)
+scene.collection.objects.link(key_obj)
+key_obj.location = (0.0, -4.5, 6.0)
+key_obj.rotation_euler = (Vector((0.0, 0.0, 0.8)) - key_obj.location).to_track_quat("-Z", "Y").to_euler()
+scene.render.resolution_x = 1920
+scene.render.resolution_y = 1080
+scene.render.resolution_percentage = 75
+scene.render.image_settings.file_format = "PNG"
+scene.render.filepath = os.path.join(ROOT, "ramadan-3d-preview.png")
+bpy.ops.render.render(write_still=True)
+print("Rendered 3D scene preview:", scene.render.filepath)
 
 # Select every scene object for a complete self-contained GLB export.
 bpy.ops.object.select_all(action="SELECT")
