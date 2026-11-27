@@ -45,6 +45,23 @@ jobs:
           ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 app/src/main/res/raw/nasheed.mp3
           test -s app/src/main/res/raw/adhan.ogg
           test -s app/src/main/res/raw/nasheed.mp3
+      - name: Verify the full animated 3D scene is present
+        run: |
+          python3 - <<'PY'
+          import json, struct
+          from pathlib import Path
+          p = Path("app/src/main/assets/models/ramadan_dream_scene.glb")
+          data = p.read_bytes()
+          assert data[:4] == b"glTF", "Missing Ramadan 3D scene"
+          version, length = struct.unpack_from("<II", data, 4)
+          assert version == 2 and length == len(data), "Invalid scene GLB header"
+          chunk_len, chunk_type = struct.unpack_from("<II", data, 12)
+          assert chunk_type == 0x4E4F534A, "Missing glTF JSON chunk"
+          gltf = json.loads(data[20:20+chunk_len].decode("utf-8").rstrip(" \\t\\r\\n\\0"))
+          assert len(gltf.get("meshes", [])) >= 30, "3D scene geometry is incomplete"
+          assert len(gltf.get("animations", [])) >= 1, "3D scene animation is missing"
+          print("3D scene OK:", len(gltf["meshes"]), "meshes,", len(gltf.get("materials", [])), "materials,", len(gltf["animations"]), "animations")
+          PY
       - name: Build phone and TV variants
         run: gradle --no-daemon assemblePhoneDebug assembleTvDebug
       - name: Verify both APKs contain playable audio resources
@@ -53,6 +70,7 @@ jobs:
             test -s "$apk"
             unzip -l "$apk" | grep -q "res/raw/adhan.ogg"
             unzip -l "$apk" | grep -q "res/raw/nasheed.mp3"
+            unzip -l "$apk" | grep -q "assets/models/ramadan_dream_scene.glb"
           done
       - name: Upload phone APK
         uses: actions/upload-artifact@v4
