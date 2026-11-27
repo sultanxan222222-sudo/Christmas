@@ -58,8 +58,8 @@ jobs:
           chunk_len, chunk_type = struct.unpack_from("<II", data, 12)
           assert chunk_type == 0x4E4F534A, "Missing glTF JSON chunk"
           gltf = json.loads(data[20:20+chunk_len].decode("utf-8").rstrip(" \\t\\r\\n\\0"))
-          assert len(gltf.get("meshes", [])) >= 30, "3D scene geometry is incomplete"
-          assert len(gltf.get("animations", [])) >= 1, "3D scene animation is missing"
+          assert len(gltf.get("meshes", [])) >= 100, "3D scene geometry or 3D starlight is incomplete"
+          assert len(gltf.get("animations", [])) >= 10, "Synchronized 3D scene animation clips are missing"
           print("3D scene OK:", len(gltf["meshes"]), "meshes,", len(gltf.get("materials", [])), "materials,", len(gltf["animations"]), "animations")
           PY
       - name: Build phone and TV variants
