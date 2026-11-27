@@ -369,7 +369,15 @@ scene = bpy.context.scene
 scene.frame_start = 1
 scene.frame_end = 60
 scene.render.fps = 30
-scene.world.color = (0.006, 0.012, 0.018)
+scene.world.color = (0.002, 0.004, 0.012)
+scene.world.use_nodes = True
+world_bg = scene.world.node_tree.nodes.get("Background")
+world_bg.inputs["Color"].default_value = (0.0015, 0.004, 0.018, 1.0)
+world_bg.inputs["Strength"].default_value = 0.16
+scene.view_settings.view_transform = "AgX"
+scene.view_settings.look = "AgX - Medium High Contrast"
+scene.view_settings.exposure = 0.15
+scene.view_settings.gamma = 1.0
 scene.render.resolution_x = 1920
 scene.render.resolution_y = 1080
 scene.render.resolution_percentage = 100
@@ -384,24 +392,48 @@ elif "BLENDER_EEVEE" in available_engines:
 camera_data = bpy.data.cameras.new("Ramadan hero preview camera")
 camera = bpy.data.objects.new("Ramadan hero preview camera", camera_data)
 scene.collection.objects.link(camera)
-camera.location = (0.0, -15.0, 6.2)
+camera.location = (4.2, -14.2, 5.8)
 target = Vector((0.0, -0.05, 1.45))
 camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
-camera_data.lens = 40
+camera_data.lens = 42
 scene.camera = camera
 key_data = bpy.data.lights.new("Preview softbox key", "AREA")
-key_data.energy = 1450
+key_data.energy = 1100
 key_data.shape = "DISK"
 key_data.size = 7.0
 key_obj = bpy.data.objects.new("Preview softbox key", key_data)
 scene.collection.objects.link(key_obj)
-key_obj.location = (0.0, -7.0, 8.0)
+key_obj.location = (-5.0, -3.0, 8.5)
 key_obj.rotation_euler = (Vector((0.0, 0.0, 1.0)) - key_obj.location).to_track_quat("-Z", "Y").to_euler()
 scene.render.resolution_x = 1920
 scene.render.resolution_y = 1080
-scene.render.resolution_percentage = 60
+scene.render.resolution_percentage = 72
 scene.render.image_settings.file_format = "PNG"
 scene.render.filepath = os.path.join(ROOT, "ramadan-3d-preview.png")
+moon_data = bpy.data.lights.new("Moonlight • cool cinematic rim", "AREA")
+moon_data.energy = 1850
+moon_data.color = (0.28, 0.48, 0.82)
+moon_data.shape = "DISK"
+moon_data.size = 8.0
+moon_obj = bpy.data.objects.new("Moonlight • cool cinematic rim", moon_data)
+scene.collection.objects.link(moon_obj)
+moon_obj.location = (4.5, 3.0, 7.5)
+moon_obj.rotation_euler = (Vector((0.0, 0.0, 1.0)) - moon_obj.location).to_track_quat("-Z", "Y").to_euler()
+fog_mat = bpy.data.materials.new("Night atmosphere • subtle volumetric haze")
+fog_mat.use_nodes = True
+fog_nodes = fog_mat.node_tree.nodes
+fog_nodes.clear()
+out_node = fog_nodes.new("ShaderNodeOutputMaterial")
+volume_node = fog_nodes.new("ShaderNodeVolumePrincipled")
+volume_node.inputs["Color"].default_value = (0.16, 0.23, 0.34, 1.0)
+volume_node.inputs["Density"].default_value = 0.012
+fog_mat.node_tree.links.new(volume_node.outputs["Volume"], out_node.inputs["Volume"])
+bpy.ops.mesh.primitive_cube_add(size=200, location=(0, 0, 0))
+fog_box = bpy.context.object
+fog_box.name = "Cinematic atmospheric volume"
+fog_box.data.materials.append(fog_mat)
+if hasattr(scene, "eevee") and hasattr(scene.eevee, "taa_render_samples"):
+    scene.eevee.taa_render_samples = 32
 bpy.ops.render.render(write_still=True)
 print("Rendered 3D scene preview:", scene.render.filepath)
 
