@@ -133,7 +133,7 @@ class RamadanHeroScene(
             paint.color = 0xFFFFD98A.toInt()
             paint.textAlign = Paint.Align.CENTER
             paint.typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
-            paint.textSize = if (count == 7) h * 0.031f else h * 0.043f
+            paint.textSize = h * 0.031f
             c.drawText("РАМАДАН", x, y + flagH * 0.56f + paint.textSize * 0.34f, paint)
             c.restore()
         }
