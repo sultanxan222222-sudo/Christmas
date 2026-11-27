@@ -28,7 +28,8 @@ class MainActivity : Activity() {
     private val currentSection get() = when (prefs.getString("launcher_section", "Главная")) { "Фильмы" -> "Кино"; else -> prefs.getString("launcher_section", "Главная") ?: "Главная" }
     private val prayerNames = linkedMapOf("fajr" to "Фаджр", "dhuhr" to "Зухр", "asr" to "Аср", "maghrib" to "Магриб", "isha" to "Иша")
     private val handler = Handler(Looper.getMainLooper())
-    private val timeFormat = SimpleDateFormat("HH:mm", Locale("ru"))
+    private val timeFormat = SimpleDateFormat("HH:mm", Locale("ru")).apply { timeZone = TimeZone.getTimeZone("Europe/Moscow") }
+    private var heroScene: RamadanHeroScene? = null
     private val updateClock = object : Runnable {
         override fun run() {
             if (::clockText.isInitialized) clockText.text = when (prefs.getInt("clock", 2)) {
@@ -38,6 +39,7 @@ class MainActivity : Activity() {
                 else -> "۞  " + SimpleDateFormat("HH:mm", Locale("ru")).format(Date()) + "  ۞"
             }
             if (::prayerText.isInitialized) updateNextPrayer()
+            heroScene?.invalidate()
             handler.postDelayed(this, 1000)
         }
     }
@@ -59,6 +61,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         if (prefs.getBoolean("nasheed_enabled", true)) startNasheed()
+        heroScene?.invalidate()
     }
 
     override fun onPause() {
@@ -128,46 +131,44 @@ class MainActivity : Activity() {
         val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         val title = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, -2, 1f) }
         title.addView(text("ليلة مباركة", 15f, 0xFFFFD88A.toInt(), true))
-        title.addView(text("РАМАДАН • ИЗУМРУДНАЯ НОЧЬ", 11f, 0xFFD8F5E5.toInt(), true))
-        header.addView(title)
-        val date = SimpleDateFormat("d MMMM yyyy", Locale("ru")).format(Date())
-        header.addView(text("Грозный  •  $date", 12f, 0xFFE6F7ED.toInt(), true))
-        val settingsButton = text("⚙", 25f, 0xFFFFD88A.toInt(), true).apply {
-            gravity = Gravity.CENTER
-            background = cardBg()
-            setPadding(dp(12), dp(7), dp(12), dp(7))
-            isFocusable = true
-            setOnClickListener { prefs.edit().putString("launcher_section", "Настройки").apply(); buildScreen() }
-            setOnFocusChangeListener { v, focused -> v.background = cardBg(focused) }
-        }
-        header.addView(settingsButton, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(8) })
-        page.addView(header)
-        val nav = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        val navScroll = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; clipToPadding = false; addView(nav) }
-        listOf("Главная", "Музыка", "Кино", "Игры", "Приложения").forEach { section ->
-            val active = currentSection == section
-            val chip = text(when(section) { "Музыка" -> "♫  МУЗЫКА"; "Кино" -> "🎬  КИНО"; "Игры" -> "🎮  ИГРЫ"; "Приложения" -> "▦  ПРИЛОЖЕНИЯ"; else -> "⌂  ГЛАВНАЯ" }, 12f,
-                if (active) 0xFFFFD88A.toInt() else Color.WHITE, true).apply {
-                gravity = Gravity.CENTER
-                background = cardBg(active)
-                setPadding(dp(12), dp(10), dp(12), dp(10))
-                isFocusable = true
-                setOnClickListener { prefs.edit().putString("launcher_section", section).apply(); buildScreen() }
-                setOnFocusChangeListener { v, focused -> v.background = cardBg(focused || active) }
+        title.addView(text(if (currentSection == "Главная") "РАМАДАН • ИЗУМРУДНАЯ НОЧЬ" else "‹  ВЕРНУТЬСЯ НА ГЛАВНУЮ", 11f, 0xFFD8F5E5.toInt(), true))
+        title.isClickable = true
+        title.isFocusable = currentSection != "Главная"
+        title.setOnClickListener {
+            if (currentSection != "Главная") {
+                prefs.edit().putString("launcher_section", "Главная").apply()
+                buildScreen()
             }
-            nav.addView(chip, LinearLayout.LayoutParams(-2, -2).apply { rightMargin = dp(6) })
         }
-        page.addView(navScroll, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8); bottomMargin = dp(8) })
+        header.addView(title)
+        val date = SimpleDateFormat("d MMMM yyyy", Locale("ru")).apply {
+            timeZone = TimeZone.getTimeZone("Europe/Moscow")
+        }.format(Date())
+        header.addView(text("Грозный  •  $date", 12f, 0xFFE6F7ED.toInt(), true))
+        val settingsButton = text("⚙", 23f, 0xFFFFD98A.toInt(), true).apply {
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(0xD9143B30.toInt())
+                setStroke(dp(2), 0xFFFFD98A.toInt())
+            }
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            isFocusable = true
+            contentDescription = "Открыть системные настройки телевизора"
+            setOnClickListener { openSystemSettings() }
+            setOnFocusChangeListener { v, focused ->
+                v.background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(if (focused) 0xFF245541.toInt() else 0xD9143B30.toInt())
+                    setStroke(dp(if (focused) 3 else 2), 0xFFFFD98A.toInt())
+                }
+            }
+        }
+        header.addView(settingsButton, LinearLayout.LayoutParams(dp(50), dp(50)).apply { leftMargin = dp(9) })
+        page.addView(header)
         if (currentSection == "Главная") {
-        page.addView(text("الله", 68f, 0xFF72FFAA.toInt(), true).apply {
-            gravity = Gravity.CENTER
-            setShadowLayer(dp(20).toFloat(), 0f, 0f, 0xFF00FF78.toInt())
-            setPadding(0, dp(4), 0, dp(2))
-        })
-        page.addView(text("МИР ВАШЕМУ ДОМУ", 10f, 0xFFE3D5A9.toInt(), true).apply {
-            gravity = Gravity.CENTER
-            letterSpacing = 0.18f
-            setPadding(0, 0, 0, dp(12))
+        page.addView(createHeroScene(), LinearLayout.LayoutParams(-1, dp(360)).apply {
+            bottomMargin = dp(7)
         })
         val timePanel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
@@ -175,64 +176,19 @@ class MainActivity : Activity() {
         }
         clockText = text("00:00:00", 34f, 0xFFFFE6B1.toInt(), true).apply { gravity = Gravity.CENTER }
         timePanel.addView(clockText)
-        timePanel.addView(text("ЧЕТЫРЕ СТИЛЯ ЧАСОВ — ВЫБЕРИТЕ СВОИ", 9f, 0xFFBDEDD1.toInt(), true).apply { gravity = Gravity.CENTER })
+        timePanel.addView(text("ВРЕМЯ ГРОЗНОГО", 9f, 0xFFBDEDD1.toInt(), true).apply { gravity = Gravity.CENTER })
         page.addView(timePanel, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
-        val clockRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val clockStyles = listOf("☾  Классика", "✧  Золото", "◷  Цифровые", "۞  Орнамент")
-        clockStyles.forEachIndexed { index, name ->
-            val selected = prefs.getInt("clock", 2) == index
-            val v = text(name, 10f, if (selected) 0xFFFFD98D.toInt() else Color.WHITE, true)
-            v.gravity = Gravity.CENTER; v.background = cardBg(selected); v.setPadding(dp(6), dp(12), dp(6), dp(12))
-            v.isFocusable = true; v.setOnClickListener {
-                prefs.edit().putInt("clock", index).apply()
-                Toast.makeText(this, "Стиль часов выбран", Toast.LENGTH_SHORT).show()
-                buildScreen()
-            }
-            v.setOnFocusChangeListener { view, focus -> view.background = cardBg(focus || selected) }
-            clockRow.addView(v, LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(4) })
-        }
-        page.addView(clockRow)
         page.addView(text("ВРЕМЕНА НАМАЗОВ • ГРОЗНЫЙ", 14f, 0xFFFFD88A.toInt(), true).apply { setPadding(0, dp(16), 0, dp(6)) })
         prayerText = text("Загружаем расписание молитв…", 13f, 0xFFE5F5EA.toInt())
         prayerText.background = cardBg(); prayerText.setPadding(dp(14), dp(12), dp(14), dp(12))
         page.addView(prayerText)
         statusText = text("Источник расписания: ДУМ ЧР • UTC+3", 10f, 0xFFB8D7C6.toInt())
         page.addView(statusText)
-        page.addView(text("ВАШЕ МЕНЮ", 14f, 0xFFFFD88A.toInt(), true).apply { setPadding(0, dp(16), 0, dp(6)) })
-        val menu = listOf("🐈  Выбрать котёнка" to { chooseCat() }, "🕌  Азан и звуки" to { soundSettings() },
-            "🌙  Календарь хиджры" to {
-                prefs.edit().putString("launcher_section", "Календарь").putInt("hijri_month_offset", 0).apply()
-                buildScreen()
-            },
-            "⚙  Настройки" to { soundSettings() })
-        menu.forEach { (name, action) ->
-            val item = text(name, 15f, Color.WHITE, true)
-            item.background = cardBg(); item.setPadding(dp(16), dp(13), dp(16), dp(13))
-            item.isFocusable = true; item.setOnClickListener { action() }
-            item.setOnFocusChangeListener { view, focus -> view.background = cardBg(focus) }
-            page.addView(item, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
-        }
-
         page.addView(text("МОИ ПРИЛОЖЕНИЯ", 14f, 0xFFFFD88A.toInt(), true).apply {
-            setPadding(0, dp(18), 0, dp(6))
+            setPadding(0, dp(14), 0, dp(5))
         })
-        page.addView(text("Все приложения телефона или телевизора — нажмите на значок, чтобы открыть.", 10f, 0xFFBDEDD1.toInt()))
-        val refreshApps = text("↻  Обновить список приложений", 12f, 0xFFFFD98D.toInt(), true).apply {
-            background = cardBg(); setPadding(dp(12), dp(10), dp(12), dp(10))
-            isFocusable = true
-            setOnClickListener { buildScreen() }
-            setOnFocusChangeListener { v, focused -> v.background = cardBg(focused) }
-        }
-        page.addView(refreshApps, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(7) })
+        page.addView(text("На экране только выбранные вами плитки. Установленные приложения не удаляются.", 10f, 0xFFBDEDD1.toInt()))
         page.addView(buildInstalledAppsGrid(), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
-
-        page.addView(text("Нашид Рамадана • мягкая фоновая музыка", 11f, 0xFFE6D9B3.toInt()).apply { setPadding(dp(4), dp(12), 0, 0) })
-        val musicToggle = text("♫  Фоновый нашид: " + if (prefs.getBoolean("nasheed_enabled", true)) "ВКЛ" else "ВЫКЛ", 14f, 0xFFFFD88A.toInt(), true).apply {
-            background = cardBg(); setPadding(dp(14), dp(12), dp(14), dp(12)); isFocusable = true
-            setOnClickListener { toggleNasheed() }
-            setOnFocusChangeListener { v, focused -> v.background = cardBg(focused) }
-        }
-        page.addView(musicToggle, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
         } else if (currentSection == "Календарь") {
             buildHijriCalendar(page)
         } else if (currentSection == "Настройки") {
@@ -290,6 +246,143 @@ class MainActivity : Activity() {
     }
 
 
+
+    override fun onBackPressed() {
+        if (currentSection != "Главная") {
+            prefs.edit().putString("launcher_section", "Главная").apply()
+            buildScreen()
+        } else {
+            super.onBackPressed()
+        }
+    }
+
+    private fun openSystemSettings() {
+        try {
+            startActivity(Intent(android.provider.Settings.ACTION_SETTINGS))
+        } catch (_: Exception) {
+            try {
+                startActivity(Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS))
+            } catch (_: Exception) {
+                Toast.makeText(this, "Настройки телевизора недоступны", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun createHeroScene(): FrameLayout {
+        val frame = FrameLayout(this)
+        val scene = RamadanHeroScene(
+            this,
+            { isMinaretLit() },
+            { prefs.getInt("cat", 0) }
+        ) { showPrayerInfo() }
+        heroScene = scene
+        frame.addView(scene, FrameLayout.LayoutParams(-1, -1))
+
+        val dots = text("⋯", 27f, 0xFFFFD98A.toInt(), true).apply {
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(0xE817382D.toInt())
+                setStroke(dp(2), 0xFFFFD98A.toInt())
+            }
+            isFocusable = true
+            contentDescription = "Дополнительное меню рядом с котёнком"
+            setOnClickListener { showOverflowMenu(this) }
+            setOnFocusChangeListener { v, focused ->
+                v.background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(if (focused) 0xFF285A43.toInt() else 0xE817382D.toInt())
+                    setStroke(dp(if (focused) 3 else 2), 0xFFFFD98A.toInt())
+                }
+            }
+        }
+        frame.addView(dots, FrameLayout.LayoutParams(dp(48), dp(48)))
+        frame.addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
+            dots.x = view.width * 0.265f
+            dots.y = (view.height - dp(51)).toFloat()
+        }
+        return frame
+    }
+
+    private fun showPrayerInfo() {
+        val times = prayerNames.entries.joinToString("\\n") { (key, name) ->
+            "$name  •  ${prayerTimes[key] ?: "--:--"}"
+        }
+        val state = if (isMinaretLit()) "Сейчас включена подсветка мечети." else "Подсветка включается к началу времени каждого намаза."
+        AlertDialog.Builder(this)
+            .setTitle("Мечеть Рамадана • Грозный")
+            .setMessage("$times\\n\\n$state")
+            .setPositiveButton("Понятно", null)
+            .show()
+    }
+
+    private fun showOverflowMenu(anchor: View) {
+        val popup = PopupMenu(this, anchor)
+        popup.menu.add(0, 1, 0, "Мои плитки на главной")
+        popup.menu.add(0, 2, 1, "Календарь Хиджры")
+        popup.menu.add(0, 3, 2, "Азан и звуки")
+        popup.menu.add(0, 4, 3, "Фоновый нашид: " + if (prefs.getBoolean("nasheed_enabled", true)) "ВКЛ" else "ВЫКЛ")
+        popup.menu.add(0, 5, 4, "Выбрать котёнка")
+        popup.menu.add(0, 6, 5, "Стиль часов")
+        popup.menu.add(0, 7, 6, "Настройки лаунчера")
+        popup.menu.add(0, 8, 7, "Музыкальные приложения")
+        popup.menu.add(0, 9, 8, "Кино и видео")
+        popup.menu.add(0, 10, 9, "Игры")
+        popup.menu.add(0, 11, 10, "Все приложения")
+        popup.menu.add(0, 12, 11, "На главную")
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                1 -> showHomeTilesManager()
+                2 -> openSection("Календарь")
+                3 -> soundSettings()
+                4 -> toggleNasheed()
+                5 -> chooseCat()
+                6 -> {
+                    prefs.edit().putInt("clock", (prefs.getInt("clock", 2) + 1) % 4).apply()
+                    buildScreen()
+                    Toast.makeText(this, "Стиль часов изменён", Toast.LENGTH_SHORT).show()
+                }
+                7 -> openSection("Настройки")
+                8 -> openSection("Музыка")
+                9 -> openSection("Кино")
+                10 -> openSection("Игры")
+                11 -> openSection("Приложения")
+                12 -> openSection("Главная")
+            }
+            true
+        }
+        popup.show()
+    }
+
+    private fun openSection(section: String) {
+        prefs.edit().putString("launcher_section", section).apply()
+        buildScreen()
+    }
+
+    private fun showHomeTilesManager() {
+        val apps = getInstalledLaunchableApps()
+        if (apps.isEmpty()) {
+            Toast.makeText(this, "Не найдены приложения для главного экрана", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val selected = prefs.getStringSet("home_apps", emptySet())?.toSet() ?: emptySet()
+        val checked = BooleanArray(apps.size) { index ->
+            selected.contains(apps[index].activityInfo.packageName)
+        }
+        val labels = apps.map { info -> info.loadLabel(packageManager).toString() }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Плитки главного экрана")
+            .setMessage("Отметьте приложения, которые хотите видеть на главном экране. Снятие отметки убирает только плитку — само приложение остаётся установленным.")
+            .setMultiChoiceItems(labels, checked) { _, which, isChecked -> checked[which] = isChecked }
+            .setPositiveButton("Сохранить") { _, _ ->
+                val packages = apps.indices.filter { checked[it] }
+                    .map { apps[it].activityInfo.packageName }.toSet()
+                prefs.edit().putStringSet("home_apps", packages).apply()
+                buildScreen()
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
+    }
 
     private fun buildHijriCalendar(page: LinearLayout) {
         val todayCalendar = Calendar.getInstance(TimeZone.getTimeZone("Europe/Moscow"), Locale("ru"))
@@ -449,7 +542,7 @@ class MainActivity : Activity() {
             try {
                 val parts = value.take(5).split(":")
                 val prayerMinute = parts[0].toInt() * 60 + parts[1].toInt()
-                nowMinutes >= prayerMinute && nowMinutes < prayerMinute + 12
+                nowMinutes >= prayerMinute && nowMinutes < prayerMinute + 20
             } catch (_: Exception) { false }
         }
     }
@@ -511,10 +604,31 @@ class MainActivity : Activity() {
     }
 
     private fun buildInstalledAppsGrid(): LinearLayout {
+        val grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val selectedPackages = prefs.getStringSet("home_apps", emptySet())?.toSet() ?: emptySet()
+        val apps = getInstalledLaunchableApps().filter { selectedPackages.contains(it.activityInfo.packageName) }
+        if (apps.isEmpty()) {
+            grid.addView(text("Здесь пока пусто. Через меню ⋯ выберите приложения, которые хотите видеть на главном экране.", 12f, 0xFFE5F5EA.toInt()))
+        } else {
+            grid.addView(buildAppsGrid(apps), LinearLayout.LayoutParams(-1, -2))
+        }
+        val manage = text("＋  ДОБАВИТЬ / УБРАТЬ ПЛИТКИ", 12f, 0xFFFFD98D.toInt(), true).apply {
+            background = cardBg()
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            isFocusable = true
+            setOnClickListener { showHomeTilesManager() }
+            setOnFocusChangeListener { v, focused -> v.background = cardBg(focused) }
+        }
+        grid.addView(manage, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+        return grid
+    }
+
+    private fun legacyUnusedInstalledAppsGrid(): LinearLayout {
         val apps = getInstalledLaunchableApps()
         val grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         if (apps.isEmpty()) {
-            grid.addView(text("Не удалось получить список приложений. Нажмите «Обновить список приложений».", 12f, 0xFFE5F5EA.toInt()))
+            grid.addView(text("Не удалось получить список приложений.", 12f, 0xFFE5F5EA.toInt()))
             return grid
         }
         val wide = resources.configuration.screenWidthDp >= 600
@@ -625,6 +739,7 @@ class MainActivity : Activity() {
                         result.forEach { (key, value) -> prefs.edit().putString("prayer_$key", value).apply() }
                         if (::statusText.isInitialized) statusText.text = "Расписание • Грозный • UTC+3"
                         updateNextPrayer()
+                        heroScene?.invalidate()
                         PrayerAlarm.scheduleNext(this)
                     } else if (::statusText.isInitialized) statusText.text = "Не удалось прочитать расписание. Проверьте подключение."
                 }
@@ -644,105 +759,40 @@ class MainActivity : Activity() {
     }
 
     private inner class RamadanSky(context: Context) : View(context) {
-        private val p = Paint(Paint.ANTI_ALIAS_FLAG)
-        private val snow = List(70) { floatArrayOf(Random.nextFloat(), Random.nextFloat(), 1f + Random.nextFloat() * 3f, 0.001f + Random.nextFloat() * 0.003f) }
-        private var animationPhase = 0f
-        private val anim = object : Runnable {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val stars = Array(42) { i ->
+            val random = Random(9800L + i * 41L)
+            floatArrayOf(random.nextFloat(), random.nextFloat() * 0.72f, 0.6f + random.nextFloat() * 1.4f)
+        }
+        private var phase = 0f
+        private val animator = object : Runnable {
             override fun run() {
-                animationPhase += 0.055f
-                snow.forEach { it[1] += it[3]; it[0] += 0.00015f; if (it[1] > 1f) { it[1] = 0f; it[0] = Random.nextFloat() } }
-                invalidate(); postDelayed(this, 40)
+                phase += 0.025f
+                invalidate()
+                postDelayed(this, 90L)
             }
         }
         init { setLayerType(View.LAYER_TYPE_SOFTWARE, null) }
-        override fun onAttachedToWindow() { super.onAttachedToWindow(); post(anim) }
-        override fun onDetachedFromWindow() { removeCallbacks(anim); super.onDetachedFromWindow() }
-        override fun onDraw(c: Canvas) {
-            val w = width.toFloat(); val h = height.toFloat()
-            p.shader = LinearGradient(0f, 0f, w, h, intArrayOf(0xFF061C19.toInt(), 0xFF092C24.toInt(), 0xFF020D12.toInt()), null, Shader.TileMode.CLAMP)
-            c.drawRect(0f, 0f, w, h, p); p.shader = null
-            // Distant hills and mosque silhouette
-            p.color = 0xFF061B18.toInt()
-            c.drawOval(-w*.2f, h*.58f, w*.55f, h*.95f, p); c.drawOval(w*.42f, h*.55f, w*1.2f, h*.98f, p)
-            p.color = 0xFF04110F.toInt()
-            c.drawRect(w*.35f, h*.58f, w*.68f, h*.82f, p)
-            c.drawRect(w*.47f, h*.48f, w*.53f, h*.58f, p)
-            c.drawCircle(w*.5f, h*.48f, w*.035f, p)
-            // Minaret: lantern and windows glow for twelve minutes after each prayer.
-            val prayerGlow = isMinaretLit()
-            val glowPulse = if (prayerGlow) (0.78f + 0.22f * kotlin.math.sin(animationPhase * 2.2f)).toFloat() else 0.16f
-            p.color = 0xFF0A211C.toInt()
-            c.drawRect(w*.72f, h*.38f, w*.755f, h*.79f, p)
-            c.drawCircle(w*.737f, h*.36f, w*.026f, p)
-            val lanternAlpha = (65 + 190 * glowPulse).toInt().coerceIn(0, 255)
-            p.color = Color.argb(lanternAlpha, 255, 207, 125)
-            p.setShadowLayer(if (prayerGlow) dp(25).toFloat() else dp(3).toFloat(), 0f, 0f,
-                if (prayerGlow) 0xFFFFC45B.toInt() else 0x33FFC45B)
-            c.drawCircle(w*.737f, h*.49f, w*.014f, p)
-            c.drawRoundRect(w*.727f, h*.555f, w*.747f, h*.585f, dp(2).toFloat(), dp(2).toFloat(), p)
-            c.drawRoundRect(w*.727f, h*.625f, w*.747f, h*.655f, dp(2).toFloat(), dp(2).toFloat(), p)
-            p.clearShadowLayer()
-            // Crescent and stylized kitten
-            val cx = w*.87f; val cy = h*.20f; val r = w*.085f
-            c.save()
-            c.rotate(2.2f * kotlin.math.sin(animationPhase * 0.72f), cx, cy)
-            p.color = 0xFFFFD77E.toInt(); p.setShadowLayer(24f, 0f, 0f, 0xFFFFC55A.toInt())
-            c.drawCircle(cx, cy, r, p); p.clearShadowLayer()
-            p.color = 0xFF071C19.toInt(); c.drawCircle(cx+r*.38f, cy-r*.22f, r*.82f, p)
-            drawKitten(c, cx-r*.25f, cy-r*.45f, r*.48f)
-            c.restore()
-            // Snow
-            p.color = 0xCCFFFFFF.toInt()
-            snow.forEach { c.drawCircle(it[0]*w, it[1]*h, it[2], p) }
-        }
-        private fun drawKitten(c: Canvas, x: Float, y: Float, s: Float) {
-            val cat = prefs.getInt("cat", 0)
-            val fur = when(cat) { 1 -> 0xFF9BA5AA.toInt(); 2 -> 0xFFE7A05A.toInt(); else -> 0xFFF1EEE8.toInt() }
-            val sway = kotlin.math.sin(animationPhase * 1.35f)
-            val blink = kotlin.math.sin(animationPhase * 0.43f) > 0.985f
-            p.color = fur
-            p.strokeWidth = s * 0.16f
-            p.strokeCap = Paint.Cap.ROUND
-            p.style = Paint.Style.STROKE
-            val tail = Path().apply {
-                moveTo(x+s*.28f, y+s*.91f)
-                cubicTo(x+s*(.95f+sway*.12f), y+s*1.05f, x+s*(.92f+sway*.18f), y+s*.22f, x+s*(1.12f+sway*.2f), y+s*.43f)
+        override fun onAttachedToWindow() { super.onAttachedToWindow(); post(animator) }
+        override fun onDetachedFromWindow() { removeCallbacks(animator); super.onDetachedFromWindow() }
+        override fun onDraw(canvas: Canvas) {
+            val w = width.toFloat()
+            val h = height.toFloat()
+            paint.shader = LinearGradient(
+                0f, 0f, w, h,
+                intArrayOf(0xFF041A17.toInt(), 0xFF0A3026.toInt(), 0xFF020D11.toInt()),
+                null, Shader.TileMode.CLAMP
+            )
+            canvas.drawRect(0f, 0f, w, h, paint)
+            paint.shader = null
+            stars.forEachIndexed { index, star ->
+                val shimmer = (0.50f + 0.40f * kotlin.math.sin(phase + index * 0.7f)).coerceIn(0.1f, 1f)
+                paint.color = Color.argb((65f + shimmer * 95f).toInt(), 206, 230, 211)
+                canvas.drawCircle(star[0] * w, star[1] * h, star[2], paint)
             }
-            c.drawPath(tail,p)
-            p.style = Paint.Style.FILL
-            p.setShadowLayer(8f, 0f, 0f, 0x8899FFCC.toInt())
-            c.drawOval(x-s*.43f, y+s*.28f, x+s*.48f, y+s*1.32f, p)
-            c.drawOval(x-s*.39f, y+s*1.05f, x-s*.08f, y+s*1.42f, p)
-            c.drawOval(x-s*.08f, y+s*1.07f, x+s*.19f, y+s*1.43f, p)
-            c.drawOval(x+s*.12f, y+s*1.02f, x+s*.43f, y+s*1.38f, p)
-            c.drawOval(x-s*.28f, y+s*.88f, x-s*.02f, y+s*1.28f, p)
-            c.drawCircle(x, y, s*.55f, p)
-            val ear = Path().apply { moveTo(x-s*.42f,y-s*.22f); lineTo(x-s*.50f,y-s*.8f); lineTo(x-s*.04f,y-s*.47f); close() }
-            c.drawPath(ear,p)
-            val ear2 = Path().apply { moveTo(x+s*.18f,y-s*.44f); lineTo(x+s*.53f,y-s*.77f); lineTo(x+s*.49f,y-s*.12f); close() }
-            c.drawPath(ear2,p)
-            p.clearShadowLayer()
-            p.color = 0xFFE9A7A5.toInt()
-            val inner1 = Path().apply { moveTo(x-s*.39f,y-s*.31f); lineTo(x-s*.44f,y-s*.68f); lineTo(x-s*.13f,y-s*.46f); close() }
-            val inner2 = Path().apply { moveTo(x+s*.26f,y-s*.42f); lineTo(x+s*.47f,y-s*.66f); lineTo(x+s*.45f,y-s*.2f); close() }
-            c.drawPath(inner1,p); c.drawPath(inner2,p)
-            p.color = 0xFF14251F.toInt()
-            if (blink) {
-                p.strokeWidth = s*.045f; p.style = Paint.Style.STROKE
-                c.drawLine(x-s*.25f,y-s*.02f,x-s*.12f,y-s*.02f,p)
-                c.drawLine(x+s*.12f,y-s*.02f,x+s*.25f,y-s*.02f,p)
-                p.style = Paint.Style.FILL
-            } else {
-                c.drawCircle(x-s*.19f,y-s*.02f,s*.055f,p)
-                c.drawCircle(x+s*.19f,y-s*.02f,s*.055f,p)
-            }
-            p.color = 0xFFFFB7A7.toInt()
-            c.drawCircle(x,y+s*.12f,s*.05f,p)
-            p.color = 0xFF14251F.toInt()
-            p.strokeWidth = s*.025f; p.style = Paint.Style.STROKE
-            c.drawLine(x,y+s*.16f,x-s*.08f,y+s*.22f,p)
-            c.drawLine(x,y+s*.16f,x+s*.08f,y+s*.22f,p)
-            p.style = Paint.Style.FILL
+            paint.color = 0x44020C0A
+            canvas.drawOval(-w * 0.2f, h * 0.72f, w * 0.6f, h * 1.08f, paint)
+            canvas.drawOval(w * 0.5f, h * 0.68f, w * 1.2f, h * 1.08f, paint)
         }
     }
 }
