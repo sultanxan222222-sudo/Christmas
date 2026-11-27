@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.util.AttributeSet
 import android.view.Choreographer
+import android.view.MotionEvent
 import android.view.SurfaceView
 import android.widget.FrameLayout
 import com.google.android.filament.View
@@ -82,6 +83,7 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
             modelViewer = viewer
             surfaceView.setOnTouchListener { _, event ->
                 viewer.onTouchEvent(event)
+                if (event.action == MotionEvent.ACTION_UP) performClick()
                 true
             }
 
@@ -94,7 +96,12 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
             val lightManager = viewer.engine.lightManager
             val lightInstance = lightManager.getInstance(viewer.light)
             lightManager.setIntensity(lightInstance, if (prayerLightOn) 68000f else 14500f)
-            lightManager.setColor(lightInstance, 1.0f, 0.78f, 0.57f)
+            lightManager.setColor(
+                lightInstance,
+                if (prayerLightOn) 1.0f else 0.58f,
+                if (prayerLightOn) 0.78f else 0.72f,
+                if (prayerLightOn) 0.57f else 0.82f
+            )
 
             viewer.view.renderQuality = viewer.view.renderQuality.apply {
                 hdrColorBuffer = View.QualityLevel.MEDIUM
@@ -127,6 +134,11 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
             surface = null
             android.util.Log.e("Ramadan3D", "Could not initialize the Filament scene", error)
         }
+    }
+
+    override fun performClick(): Boolean {
+        super.performClick()
+        return true
     }
 
     fun setPrayerLightOn(enabled: Boolean) {
