@@ -932,7 +932,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun actionCard(value: String, action: () -> Unit, longAction: (() -> Unit)? = null) {
+    private fun actionCard(value: String, longAction: (() -> Unit)? = null, action: () -> Unit) {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
