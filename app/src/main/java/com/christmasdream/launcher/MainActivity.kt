@@ -33,10 +33,10 @@ class MainActivity : Activity() {
     private val updateClock = object : Runnable {
         override fun run() {
             if (::clockText.isInitialized) clockText.text = when (prefs.getInt("clock", 2)) {
-                0 -> SimpleDateFormat("HH:mm:ss", Locale("ar")).format(Date())
-                1 -> "✧  " + SimpleDateFormat("HH:mm", Locale("ru")).format(Date()) + "  ✧"
-                2 -> SimpleDateFormat("HH:mm:ss", Locale("ru")).format(Date())
-                else -> "۞  " + SimpleDateFormat("HH:mm", Locale("ru")).format(Date()) + "  ۞"
+                0 -> SimpleDateFormat("HH:mm:ss", Locale("ar")).apply { timeZone = TimeZone.getTimeZone("Europe/Moscow") }.format(Date())
+                1 -> "✧  " + SimpleDateFormat("HH:mm", Locale("ru")).apply { timeZone = TimeZone.getTimeZone("Europe/Moscow") }.format(Date()) + "  ✧"
+                2 -> SimpleDateFormat("HH:mm:ss", Locale("ru")).apply { timeZone = TimeZone.getTimeZone("Europe/Moscow") }.format(Date())
+                else -> "۞  " + SimpleDateFormat("HH:mm", Locale("ru")).apply { timeZone = TimeZone.getTimeZone("Europe/Moscow") }.format(Date()) + "  ۞"
             }
             if (::prayerText.isInitialized) updateNextPrayer()
             heroScene?.invalidate()
