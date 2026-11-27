@@ -102,7 +102,7 @@ night_ground = pbr_material("Ramadan • midnight garden stone", (0.012, 0.035, 
 flame_mat = pbr_material("Ramadan • living amber flame", (1.0, 0.19, 0.018), 0.0, 0.25, (1.0, 0.13, 0.008))
 
 # A softly reflective ground plane, large enough to catch the lantern shadows.
-bpy.ops.mesh.primitive_plane_add(size=200, location=(0, 0, -0.018))
+bpy.ops.mesh.primitive_plane_add(size=5.6, location=(0, 0, -0.018))
 ground = bpy.context.object
 ground.name = "Midnight courtyard • ground"
 ground.data.materials.append(night_ground)
