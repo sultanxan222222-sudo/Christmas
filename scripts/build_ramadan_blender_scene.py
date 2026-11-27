@@ -134,7 +134,7 @@ night_ground = pbr_material("Ramadan • midnight garden stone", (0.012, 0.035, 
 flame_mat = pbr_material("Ramadan • living amber flame", (1.0, 0.19, 0.018), 0.0, 0.25, (1.0, 0.13, 0.008))
 
 # A softly reflective, hero-sized courtyard plane; it must not dominate Filament auto-framing.
-bpy.ops.mesh.primitive_plane_add(size=12.0, location=(0, 0, -0.018))
+bpy.ops.mesh.primitive_plane_add(size=5.8, location=(0, 0, -0.018))
 ground = bpy.context.object
 ground.name = "Midnight courtyard • ground"
 ground.data.materials.append(night_ground)
@@ -353,7 +353,7 @@ for index in range(42):
     radius = star_rng.uniform(0.008, 0.019)
     x = star_rng.uniform(-2.25, 2.25)
     y = star_rng.uniform(1.35, 2.95)
-    z = star_rng.uniform(-2.55, -1.85)
+    z = star_rng.uniform(2.65, 4.0)
     bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=radius, location=(x, y, z))
     star_obj = bpy.context.object
     star_obj.name = "Distant 3D star %02d" % index
@@ -436,6 +436,10 @@ if hasattr(scene, "eevee") and hasattr(scene.eevee, "taa_render_samples"):
     scene.eevee.taa_render_samples = 32
 bpy.ops.render.render(write_still=True)
 print("Rendered 3D scene preview:", scene.render.filepath)
+
+# The 200-unit fog volume is preview-only. Exporting it would make Filament's
+# transformToUnitCube fit a huge invisible box and shrink every visible asset.
+bpy.data.objects.remove(fog_box, do_unlink=True)
 
 # Select every scene object for a complete self-contained GLB export.
 bpy.ops.object.select_all(action="SELECT")
