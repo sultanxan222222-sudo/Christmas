@@ -1,6 +1,11 @@
 package com.christmasdream.launcher
 
 import android.app.Activity
+import android.app.AlertDialog
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import android.os.Build
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
@@ -35,6 +40,19 @@ class ChristmasMusicActivity : Activity() {
     private var pulse: ValueAnimator? = null
     private var shuffle = false
     private var repeat = true
+    private var usbReceiverRegistered = false
+    private var usbDialogShown = false
+    private val usbStorageReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_MEDIA_MOUNTED -> handler.postDelayed({
+                    if (!isFinishing && isUsbStorageMounted()) showUsbMusicDialog()
+                }, 700L)
+                Intent.ACTION_MEDIA_UNMOUNTED, Intent.ACTION_MEDIA_EJECT, Intent.ACTION_MEDIA_BAD_REMOVAL ->
+                    usbDialogShown = false
+            }
+        }
+    }
     private val tick = object : Runnable {
         override fun run() {
             if (!isFinishing) {
@@ -52,6 +70,9 @@ class ChristmasMusicActivity : Activity() {
         player.setVolume(prefs.getFloat("christmas_mp3_volume", 0.8f))
         loadTracks()
         buildScreen()
+        if (intent.getBooleanExtra(EXTRA_OPEN_USB_PICKER, false)) {
+            handler.postDelayed({ if (!isFinishing) pickTracks() }, 450L)
+        }
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density + 0.5f).toInt()
@@ -183,6 +204,7 @@ class ChristmasMusicActivity : Activity() {
         root.addView(panel, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(15) })
 
         root.addView(action("＋   ДОБАВИТЬ MP3-КОМПОЗИЦИИ") { pickTracks() })
+        root.addView(action("▣   ОТКРЫТЬ МУЗЫКУ С USB-ФЛЕШКИ") { pickTracks() })
         root.addView(action("♫   ИСПОЛЬЗОВАТЬ ТЕКУЩУЮ ПЕСНЮ КАК ФОНОВУЮ") {
             player.currentTrack?.let { track ->
                 prefs.edit().putString("custom_music_uri", track.uri).putBoolean("jingle_music_enabled", true).apply()
@@ -405,10 +427,61 @@ class ChristmasMusicActivity : Activity() {
         handler.post(tick)
     }
 
+    override fun onStart() {
+        super.onStart()
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_MEDIA_MOUNTED)
+            addAction(Intent.ACTION_MEDIA_UNMOUNTED)
+            addAction(Intent.ACTION_MEDIA_EJECT)
+            addAction(Intent.ACTION_MEDIA_BAD_REMOVAL)
+            addDataScheme("file")
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(usbStorageReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(usbStorageReceiver, filter)
+        }
+        usbReceiverRegistered = true
+    }
+
+    override fun onStop() {
+        if (usbReceiverRegistered) {
+            try { unregisterReceiver(usbStorageReceiver) } catch (_: Exception) { }
+            usbReceiverRegistered = false
+        }
+        super.onStop()
+    }
+
+    private fun isUsbStorageMounted(): Boolean {
+        return try {
+            val manager = getSystemService(Context.STORAGE_SERVICE) as android.os.storage.StorageManager
+            manager.storageVolumes.any { volume ->
+                volume.isRemovable && volume.state == android.os.Environment.MEDIA_MOUNTED
+            }
+        } catch (_: Exception) { false }
+    }
+
+    private fun showUsbMusicDialog() {
+        if (usbDialogShown || isFinishing) return
+        usbDialogShown = true
+        AlertDialog.Builder(this)
+            .setTitle("🎄 USB-флешка подключена")
+            .setMessage("Выбери музыку на флешке, чтобы добавить её в рождественскую коллекцию.")
+            .setPositiveButton("Выбрать MP3") { _, _ -> pickTracks() }
+            .setNegativeButton("Позже", null)
+            .setOnDismissListener { usbDialogShown = false }
+            .show()
+    }
+
     override fun onDestroy() {
         handler.removeCallbacks(tick)
         pulse?.cancel()
         player.release()
         super.onDestroy()
+    }
+
+    companion object {
+        const val EXTRA_OPEN_USB_PICKER = "open_usb_music_picker"
     }
 }
