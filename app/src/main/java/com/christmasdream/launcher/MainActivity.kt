@@ -323,7 +323,7 @@ class MainActivity : Activity() {
             "▦   МОИ ПЛИТКИ НА ГЛАВНОЙ" to { showHomeTilesManager() },
             "☾   КАЛЕНДАРЬ ХИДЖРЫ" to { openSection("Календарь") },
             "◖   АЗАН И ЗВУКИ" to { soundSettings() },
-            "♫   ФОНОВЫЙ НАШИД: " + if (prefs.getBoolean("nasheed_enabled", true)) "ВКЛ" else "ВЫКЛ" to { toggleNasheed() },
+            ("♫   ФОНОВЫЙ НАШИД: " + if (prefs.getBoolean("nasheed_enabled", true)) "ВКЛ" else "ВЫКЛ") to { toggleNasheed() },
             "♧   ВЫБРАТЬ КОТЁНКА" to { chooseCat() },
             "◷   СТИЛЬ ЧАСОВ" to {
                 prefs.edit().putInt("clock", (prefs.getInt("clock", 2) + 1) % 4).apply()
