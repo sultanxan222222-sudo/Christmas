@@ -1,6 +1,7 @@
 import bpy
 import math
 import os
+import random
 from mathutils import Vector
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -256,6 +257,19 @@ def create_flame(name, x, y):
 
 create_flame("Left lantern • living flame", -0.98, -2.25)
 create_flame("Right lantern • living flame", 0.98, -2.25)
+
+# A field of tiny emissive 3D stars behind the architecture.
+star_mat = pbr_material("Ramadan • cool starlight", (0.48, 0.72, 0.88), 0.0, 0.3, (0.18, 0.34, 0.52))
+star_rng = random.Random(20261127)
+for index in range(42):
+    radius = star_rng.uniform(0.008, 0.019)
+    x = star_rng.uniform(-2.25, 2.25)
+    y = star_rng.uniform(1.35, 2.95)
+    z = star_rng.uniform(-2.55, -1.85)
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=radius, location=(x, y, z))
+    star_obj = bpy.context.object
+    star_obj.name = "Distant 3D star %02d" % index
+    star_obj.data.materials.append(star_mat)
 
 # A subtle breathing motion for the sleeping kitten.
 for frame, factor in [(1, 1.0), (30, 1.018), (60, 1.0)]:
