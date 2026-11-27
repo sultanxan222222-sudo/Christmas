@@ -554,29 +554,111 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun orderedPinnedPackages(pins: Set<String>): MutableList<String> {
+        val saved = wallpaperPrefs.getString("home_card_order", "").orEmpty()
+            .split("|").filter { it.isNotBlank() && it in pins }
+        val ordered = saved.distinct().toMutableList()
+        val missing = pins.filter { it !in ordered }.sortedBy { pkg ->
+            runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString().lowercase(Locale.getDefault()) }.getOrDefault(pkg)
+        }
+        ordered.addAll(missing)
+        return ordered
+    }
+
     private fun pinnedApps(): List<android.content.pm.ResolveInfo> {
         val pins = wallpaperPrefs.getStringSet("home_card_packages", emptySet()) ?: emptySet()
-        return installedApps().filter { it.activityInfo.packageName in pins }
+        val byPackage = installedApps().associateBy { it.activityInfo.packageName }
+        return orderedPinnedPackages(pins).mapNotNull { byPackage[it] }
+    }
+
+    private fun saveHomePins(pins: Set<String>, order: List<String> = orderedPinnedPackages(pins)) {
+        wallpaperPrefs.edit()
+            .putStringSet("home_card_packages", pins)
+            .putString("home_card_order", order.filter { it in pins }.distinct().joinToString("|"))
+            .apply()
+    }
+
+    private fun moveHomeCard(pkg: String, direction: Int) {
+        val pins = wallpaperPrefs.getStringSet("home_card_packages", emptySet()) ?: emptySet()
+        val order = orderedPinnedPackages(pins)
+        val index = order.indexOf(pkg)
+        val target = index + direction
+        if (index < 0 || target !in order.indices) return
+        val item = order[index]
+        order[index] = order[target]
+        order[target] = item
+        saveHomePins(pins, order)
+        render()
     }
 
     private fun manageHomeCards(add: Boolean) {
         val apps = installedApps()
         if (apps.isEmpty()) return
         val current = (wallpaperPrefs.getStringSet("home_card_packages", emptySet()) ?: emptySet()).toMutableSet()
-        val candidates = if (add) apps.filter { it.activityInfo.packageName !in current } else apps.filter { it.activityInfo.packageName in current }
-        if (candidates.isEmpty()) {
-            android.widget.Toast.makeText(this, if (add) "Все доступные приложения уже добавлены" else "На главном экране пока нет добавленных карточек", android.widget.Toast.LENGTH_SHORT).show()
-            return
+        val search = android.widget.EditText(this).apply {
+            hint = "Поиск приложения"
+            setSingleLine(true)
+            textSize = 15f
+            setTextColor(ivory)
+            setHintTextColor(0xFFBFAE9D.toInt())
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+            background = shape(0xFF342632.toInt(), 14, 0x66D9B66F)
         }
-        val labels = candidates.map { it.loadLabel(packageManager).toString() }.toTypedArray()
-        AlertDialog.Builder(this).setTitle(if (add) "Добавить карточку" else "Удалить карточку с главного экрана")
-            .setItems(labels) { _, which ->
-                val pkg = candidates[which].activityInfo.packageName
-                if (add) current.add(pkg) else current.remove(pkg)
-                wallpaperPrefs.edit().putStringSet("home_card_packages", current).apply()
-                render()
-                android.widget.Toast.makeText(this, if (add) "Карточка добавлена" else "Карточка убрана. Приложение осталось установленным.", android.widget.Toast.LENGTH_SHORT).show()
-            }.setNegativeButton("Отмена", null).show()
+        val adapter = android.widget.ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, mutableListOf())
+        val list = android.widget.ListView(this).apply {
+            this.adapter = adapter
+            divider = android.graphics.drawable.ColorDrawable(0x557A5A43)
+            dividerHeight = dp(1)
+            isFocusable = true
+            isFocusableInTouchMode = true
+        }
+        var visibleApps = emptyList<android.content.pm.ResolveInfo>()
+        fun refreshList() {
+            val query = search.text?.toString()?.trim()?.lowercase(Locale.getDefault()).orEmpty()
+            visibleApps = apps.filter { info ->
+                val pkg = info.activityInfo.packageName
+                val allowed = if (add) pkg !in current else pkg in current
+                allowed && (query.isEmpty() ||
+                    info.loadLabel(packageManager).toString().lowercase(Locale.getDefault()).contains(query) ||
+                    pkg.lowercase(Locale.getDefault()).contains(query))
+            }
+            adapter.clear()
+            adapter.addAll(visibleApps.map { info ->
+                val name = info.loadLabel(packageManager).toString()
+                if (add) "＋   $name" else "−   $name"
+            })
+            adapter.notifyDataSetChanged()
+        }
+        list.setOnItemClickListener { _, _, position, _ ->
+            val info = visibleApps.getOrNull(position) ?: return@setOnItemClickListener
+            val pkg = info.activityInfo.packageName
+            if (add) current.add(pkg) else current.remove(pkg)
+            val order = orderedPinnedPackages(current)
+            if (add && pkg !in order) order.add(pkg)
+            saveHomePins(current, order)
+            refreshList()
+            android.widget.Toast.makeText(this,
+                if (add) "Карточка добавлена на главный экран" else "Карточка убрана. Приложение осталось установленным.",
+                android.widget.Toast.LENGTH_SHORT).show()
+        }
+        search.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = refreshList()
+            override fun afterTextChanged(s: android.text.Editable?) = Unit
+        })
+        refreshList()
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            addView(search, LinearLayout.LayoutParams(-1, dp(48)).apply { bottomMargin = dp(8) })
+            addView(list, LinearLayout.LayoutParams(-1, dp(330)))
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(if (add) "Добавить карточки на главный экран" else "Убрать карточки с главного экрана")
+            .setView(panel)
+            .setNegativeButton("Готово", null)
+            .create()
+        dialog.show()
     }
 
     private fun removeHomeSection(section: String) {
@@ -757,6 +839,28 @@ class MainActivity : Activity() {
                     ellipsize = android.text.TextUtils.TruncateAt.END
                 }, LinearLayout.LayoutParams(-1, -2))
                 card.setOnClickListener { launch(info.activityInfo.packageName) }
+                var remoteLongPressHandled = false
+                card.setOnKeyListener { _, keyCode, event ->
+                    val selectKey = keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER ||
+                        keyCode == android.view.KeyEvent.KEYCODE_ENTER ||
+                        keyCode == android.view.KeyEvent.KEYCODE_NUMPAD_ENTER
+                    if (!selectKey) return@setOnKeyListener false
+                    when (event.action) {
+                        android.view.KeyEvent.ACTION_DOWN -> {
+                            if (event.repeatCount > 0 && event.eventTime - event.downTime >= 450L && !remoteLongPressHandled) {
+                                remoteLongPressHandled = true
+                                showAppCardMenu(info, homeCardsOnly)
+                                true
+                            } else remoteLongPressHandled
+                        }
+                        android.view.KeyEvent.ACTION_UP -> {
+                            val consumed = remoteLongPressHandled
+                            remoteLongPressHandled = false
+                            consumed
+                        }
+                        else -> remoteLongPressHandled
+                    }
+                }
                 card.setOnLongClickListener {
                     showAppCardMenu(info, homeCardsOnly)
                     true
@@ -784,28 +888,32 @@ class MainActivity : Activity() {
         val appName = info.loadLabel(packageManager).toString()
         val current = (wallpaperPrefs.getStringSet("home_card_packages", emptySet()) ?: emptySet()).toMutableSet()
         val isPinned = pkg in current
-        val actions = if (isPinned || homeCardsOnly) {
-            arrayOf("Убрать карточку с главного экрана", "Открыть приложение")
+        val order = orderedPinnedPackages(current)
+        val actions = mutableListOf<Pair<String, () -> Unit>>()
+        if (isPinned || homeCardsOnly) {
+            actions.add("Убрать карточку с главного экрана" to {
+                current.remove(pkg)
+                saveHomePins(current, order.filter { it != pkg })
+                render()
+                android.widget.Toast.makeText(this, "Карточка убрана. Приложение осталось установленным.", android.widget.Toast.LENGTH_SHORT).show()
+            })
+            val index = order.indexOf(pkg)
+            if (index > 0) actions.add("Переместить влево" to { moveHomeCard(pkg, -1) })
+            if (index >= 0 && index < order.lastIndex) actions.add("Переместить вправо" to { moveHomeCard(pkg, 1) })
         } else {
-            arrayOf("Добавить карточку на главный экран", "Открыть приложение")
+            actions.add("Добавить карточку на главный экран" to {
+                current.add(pkg)
+                val updated = orderedPinnedPackages(current)
+                if (pkg !in updated) updated.add(pkg)
+                saveHomePins(current, updated)
+                render()
+                android.widget.Toast.makeText(this, "Карточка добавлена на главный экран.", android.widget.Toast.LENGTH_SHORT).show()
+            })
         }
+        actions.add("Открыть приложение" to { launch(pkg) })
         AlertDialog.Builder(this)
             .setTitle(appName)
-            .setItems(actions) { _, which ->
-                when (which) {
-                    0 -> {
-                        if (isPinned) current.remove(pkg) else current.add(pkg)
-                        wallpaperPrefs.edit().putStringSet("home_card_packages", current).apply()
-                        render()
-                        android.widget.Toast.makeText(
-                            this,
-                            if (isPinned) "Карточка убрана. Приложение осталось установленным." else "Карточка добавлена на главный экран.",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                    1 -> launch(pkg)
-                }
-            }
+            .setItems(actions.map { it.first }.toTypedArray()) { _, which -> actions.getOrNull(which)?.second?.invoke() }
             .setNegativeButton("Отмена", null)
             .show()
     }
