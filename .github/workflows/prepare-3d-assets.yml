@@ -2,6 +2,11 @@ name: Prepare Ramadan 3D model assets
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ ramadan-islamic-launcher ]
+    paths:
+      - "scripts/prepare_ramadan_3d_assets.py"
+      - ".github/workflows/prepare-3d-assets.yml"
 
 permissions:
   contents: read
