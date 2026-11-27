@@ -8,7 +8,6 @@ import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
-import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -98,7 +97,7 @@ class ChristmasCinemaActivity : Activity() {
             setPadding(dp(10), dp(7), dp(10), dp(7))
             background = GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(0x00170D18, 0xCC2B1225, 0xCC2B1225, 0x00170D18)
+                intArrayOf(0x00170D18.toInt(), 0xCC2B1225.toInt(), 0xCC2B1225.toInt(), 0x00170D18.toInt())
             )
             isClickable = false
         }
