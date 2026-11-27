@@ -1,0 +1,31 @@
+name: Prepare Ramadan 3D model assets
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  acquire-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Ramadan launcher branch
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Discover, download and validate CC0 GLB models
+        run: python3 scripts/prepare_ramadan_3d_assets.py
+      - name: Package validated 3D assets
+        run: |
+          cd app/src/main/assets
+          zip -r "$GITHUB_WORKSPACE/ramadan-3d-models.zip" models
+      - name: Upload validated model pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ramadan-Dream-3D-Models
+          path: ramadan-3d-models.zip
+          if-no-files-found: error
+          retention-days: 30
