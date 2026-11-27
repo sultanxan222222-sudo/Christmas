@@ -44,14 +44,14 @@ class ChristmasPlaylistPlayer(
                 setDataSource(appContext, Uri.parse(track.uri))
                 setOnPreparedListener {
                     it.start()
-                    isPlaying = true
+                    this@ChristmasPlaylistPlayer.isPlaying = true
                     publish()
                 }
                 setOnCompletionListener {
                     if (repeatOne) play(currentIndex) else next()
                 }
                 setOnErrorListener { _, _, _ ->
-                    isPlaying = false
+                    this@ChristmasPlaylistPlayer.isPlaying = false
                     publish()
                     true
                 }
