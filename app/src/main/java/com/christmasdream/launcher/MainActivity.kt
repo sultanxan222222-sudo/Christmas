@@ -69,6 +69,22 @@ class MainActivity : Activity() {
     private val wifiStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) { refreshWifiQuickButton() }
     }
+    private var usbReceiverRegistered = false
+    private var usbDialogShown = false
+    private val usbStorageReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_MEDIA_MOUNTED -> {
+                    newYearHandler.postDelayed({
+                        if (!isFinishing && isUsbStorageMounted()) showUsbMusicDialog()
+                    }, 700L)
+                }
+                Intent.ACTION_MEDIA_UNMOUNTED, Intent.ACTION_MEDIA_EJECT, Intent.ACTION_MEDIA_BAD_REMOVAL -> {
+                    usbDialogShown = false
+                }
+            }
+        }
+    }
     private val newYearCheck = object : Runnable {
         override fun run() {
             checkNewYearMoment()
@@ -104,6 +120,20 @@ class MainActivity : Activity() {
             registerReceiver(wifiStateReceiver, filter)
         }
         wifiReceiverRegistered = true
+        val usbFilter = IntentFilter().apply {
+            addAction(Intent.ACTION_MEDIA_MOUNTED)
+            addAction(Intent.ACTION_MEDIA_UNMOUNTED)
+            addAction(Intent.ACTION_MEDIA_EJECT)
+            addAction(Intent.ACTION_MEDIA_BAD_REMOVAL)
+            addDataScheme("file")
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(usbStorageReceiver, usbFilter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(usbStorageReceiver, usbFilter)
+        }
+        usbReceiverRegistered = true
         refreshWifiQuickButton()
     }
 
@@ -111,6 +141,10 @@ class MainActivity : Activity() {
         if (wifiReceiverRegistered) {
             try { unregisterReceiver(wifiStateReceiver) } catch (_: Exception) { }
             wifiReceiverRegistered = false
+        }
+        if (usbReceiverRegistered) {
+            try { unregisterReceiver(usbStorageReceiver) } catch (_: Exception) { }
+            usbReceiverRegistered = false
         }
         super.onStop()
     }
@@ -129,6 +163,30 @@ class MainActivity : Activity() {
         santaTts = null
         musicPlayer.release()
         super.onDestroy()
+    }
+
+    private fun isUsbStorageMounted(): Boolean {
+        return try {
+            val manager = getSystemService(Context.STORAGE_SERVICE) as android.os.storage.StorageManager
+            manager.storageVolumes.any { volume ->
+                volume.isRemovable && volume.state == android.os.Environment.MEDIA_MOUNTED
+            }
+        } catch (_: Exception) { false }
+    }
+
+    private fun showUsbMusicDialog() {
+        if (usbDialogShown || isFinishing) return
+        usbDialogShown = true
+        AlertDialog.Builder(this)
+            .setTitle("🎄 USB-флешка подключена")
+            .setMessage("На флешке может быть ваша праздничная музыка. Открыть рождественский MP3-плеер и выбрать песни?")
+            .setPositiveButton("Открыть музыку") { _, _ ->
+                startActivity(Intent(this, ChristmasMusicActivity::class.java)
+                    .putExtra(ChristmasMusicActivity.EXTRA_OPEN_USB_PICKER, true))
+            }
+            .setNegativeButton("Позже", null)
+            .setOnDismissListener { usbDialogShown = false }
+            .show()
     }
 
     private fun checkNewYearMoment() {
