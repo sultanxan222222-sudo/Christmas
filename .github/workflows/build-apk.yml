@@ -1,10 +1,10 @@
 name: Build Christmas Dream Launcher APKs
 on:
   push:
-    branches: [ main, feature/home-cards-ice-clock-jingle ]
+    branches: [ main, feature/home-cards-ice-clock-jingle, work/premium-christmas-dream ]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -49,6 +49,29 @@ jobs:
           file app/src/main/res/drawable-nodpi/christmas_background_*.jpg app/src/main/res/drawable-nodpi/christmas_tree_feature.jpg
       - name: Build phone and TV variants
         run: gradle --no-daemon assemblePhoneDebug assembleTvDebug
+      - name: Publish public TV release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.5.4
+          target_commitish: main
+          name: Christmas Dream Launcher TV 1.5.4
+          body: |
+            Бесплатный праздничный лаунчер для Android TV.
+
+            В этой версии:
+            - чистый главный экран с выбранными карточками;
+            - управление карточками и их порядком;
+            - разделы Галерея и Карточки;
+            - Christmas Cinema для видео из памяти телевизора и USB;
+            - праздничная тема, снег, часы, музыка и новогодний сюрприз.
+
+            TV APK собран автоматически GitHub Actions. Совместимость с конкретными телевизорами и поддержка видеоформатов зависят от прошивки и декодеров устройства.
+          files: app/build/outputs/apk/tv/debug/app-tv-debug.apk
+          draft: false
+          prerelease: false
+          make_latest: true
+          overwrite_files: true
       - name: Upload phone APK
         uses: actions/upload-artifact@v4
         with:

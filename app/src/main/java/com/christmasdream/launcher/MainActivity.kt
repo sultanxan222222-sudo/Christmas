@@ -47,8 +47,8 @@ class MainActivity : Activity() {
     private val white = Color.rgb(255, 255, 250)
     private val ivory = Color.rgb(255, 247, 235)
     private val gold = Color.rgb(255, 211, 125)
-    private val sections = listOf("Главная", "Фильмы", "ТВ", "Игры", "Приложения", "Настройки")
-    private val symbols = mapOf("Главная" to "⌂", "Фильмы" to "🎬", "ТВ" to "📺", "Игры" to "🎮", "Приложения" to "▦", "Настройки" to "⚙")
+    private val sections = listOf("Главная", "Галерея", "Фильмы", "ТВ", "Игры", "Приложения", "Музыка", "Карточки", "Настройки")
+    private val symbols = mapOf("Главная" to "⌂", "Фильмы" to "🎬", "ТВ" to "📺", "Игры" to "🎮", "Приложения" to "▦", "Галерея" to "▧", "Карточки" to "＋", "Музыка" to "♫", "Настройки" to "⚙")
     private var selected = "Главная"
     private lateinit var content: LinearLayout
     private lateinit var nav: LinearLayout
@@ -56,6 +56,7 @@ class MainActivity : Activity() {
     private lateinit var wallpaperView: ImageView
     private val wallpaperPrefs by lazy { getSharedPreferences("christmas_dream_settings", MODE_PRIVATE) }
     private val wallpaperRequestCode = 4107
+    private val musicRequestCode = 4108
     private lateinit var rootFrame: FrameLayout
     private val newYearHandler = Handler(Looper.getMainLooper())
     private var newYearOverlay: NewYearCelebrationView? = null
@@ -67,6 +68,22 @@ class MainActivity : Activity() {
     private var wifiReceiverRegistered = false
     private val wifiStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) { refreshWifiQuickButton() }
+    }
+    private var usbReceiverRegistered = false
+    private var usbDialogShown = false
+    private val usbStorageReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_MEDIA_MOUNTED -> {
+                    newYearHandler.postDelayed({
+                        if (!isFinishing && isUsbStorageMounted()) showUsbMusicDialog()
+                    }, 700L)
+                }
+                Intent.ACTION_MEDIA_UNMOUNTED, Intent.ACTION_MEDIA_EJECT, Intent.ACTION_MEDIA_BAD_REMOVAL -> {
+                    usbDialogShown = false
+                }
+            }
+        }
     }
     private val newYearCheck = object : Runnable {
         override fun run() {
@@ -90,7 +107,7 @@ class MainActivity : Activity() {
         super.onResume()
         newYearHandler.removeCallbacks(newYearCheck)
         newYearHandler.post(newYearCheck)
-        if (wallpaperPrefs.getBoolean("jingle_music_enabled", true)) musicPlayer.start()
+        if (wallpaperPrefs.getBoolean("jingle_music_enabled", true)) musicPlayer.start(wallpaperPrefs.getString("custom_music_uri", null))
     }
 
     override fun onStart() {
@@ -103,6 +120,20 @@ class MainActivity : Activity() {
             registerReceiver(wifiStateReceiver, filter)
         }
         wifiReceiverRegistered = true
+        val usbFilter = IntentFilter().apply {
+            addAction(Intent.ACTION_MEDIA_MOUNTED)
+            addAction(Intent.ACTION_MEDIA_UNMOUNTED)
+            addAction(Intent.ACTION_MEDIA_EJECT)
+            addAction(Intent.ACTION_MEDIA_BAD_REMOVAL)
+            addDataScheme("file")
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(usbStorageReceiver, usbFilter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(usbStorageReceiver, usbFilter)
+        }
+        usbReceiverRegistered = true
         refreshWifiQuickButton()
     }
 
@@ -110,6 +141,10 @@ class MainActivity : Activity() {
         if (wifiReceiverRegistered) {
             try { unregisterReceiver(wifiStateReceiver) } catch (_: Exception) { }
             wifiReceiverRegistered = false
+        }
+        if (usbReceiverRegistered) {
+            try { unregisterReceiver(usbStorageReceiver) } catch (_: Exception) { }
+            usbReceiverRegistered = false
         }
         super.onStop()
     }
@@ -128,6 +163,30 @@ class MainActivity : Activity() {
         santaTts = null
         musicPlayer.release()
         super.onDestroy()
+    }
+
+    private fun isUsbStorageMounted(): Boolean {
+        return try {
+            val manager = getSystemService(Context.STORAGE_SERVICE) as android.os.storage.StorageManager
+            manager.storageVolumes.any { volume ->
+                volume.isRemovable && volume.state == android.os.Environment.MEDIA_MOUNTED
+            }
+        } catch (_: Exception) { false }
+    }
+
+    private fun showUsbMusicDialog() {
+        if (usbDialogShown || isFinishing) return
+        usbDialogShown = true
+        AlertDialog.Builder(this)
+            .setTitle("🎄 USB-флешка подключена")
+            .setMessage("На флешке может быть ваша праздничная музыка. Открыть рождественский MP3-плеер и выбрать песни?")
+            .setPositiveButton("Открыть музыку") { _, _ ->
+                startActivity(Intent(this, ChristmasMusicActivity::class.java)
+                    .putExtra(ChristmasMusicActivity.EXTRA_OPEN_USB_PICKER, true))
+            }
+            .setNegativeButton("Позже", null)
+            .setOnDismissListener { usbDialogShown = false }
+            .show()
     }
 
     private fun checkNewYearMoment() {
@@ -209,10 +268,13 @@ class MainActivity : Activity() {
     private fun glass(radius: Int = 20, focused: Boolean = false): GradientDrawable =
         GradientDrawable(
             GradientDrawable.Orientation.TL_BR,
-            intArrayOf(0x663C4658, 0x55303A4B, 0x66302B3A)
+            if (focused)
+                intArrayOf(0xF56A2635.toInt(), 0xF0441D2B.toInt(), 0xF52A1725.toInt())
+            else
+                intArrayOf(0xD9362938.toInt(), 0xD02A2433.toInt(), 0xD51A202D.toInt())
         ).apply {
             cornerRadius = dp(radius).toFloat()
-            setStroke(dp(if (focused) 2 else 1), if (focused) gold else 0x88FFFFFF.toInt())
+            setStroke(dp(if (focused) 2 else 1), if (focused) 0xFFFFD98A.toInt() else 0x66E6C58F)
         }
 
     private fun label(value: String, size: Float, color: Int = white, bold: Boolean = false): TextView =
@@ -319,7 +381,7 @@ class MainActivity : Activity() {
             chip.setPadding(dp(13), dp(10), dp(13), dp(10))
             chip.isFocusable = true
             chip.isClickable = true
-            chip.setOnClickListener { selected = section; render() }
+            chip.setOnClickListener { if (section == "Музыка") startActivity(Intent(this, ChristmasMusicActivity::class.java)) else { selected = section; render() } }
             chip.setOnFocusChangeListener { v, focused ->
                 if (focused) v.background = shape(white, 18, gold)
                 else v.background = shape(if (active) white else 0x44FFFFFF, 18, if (active) gold else 0x66FFFFFF)
@@ -331,6 +393,8 @@ class MainActivity : Activity() {
         when (selected) {
             "Главная" -> home()
             "Настройки" -> settings()
+            "Карточки" -> cardsManager()
+            "Галерея" -> gallerySection()
             else -> appSection(selected)
         }
     }
@@ -381,6 +445,9 @@ class MainActivity : Activity() {
             Triple("ТВ", "▤", "Ваши приложения для просмотра"),
             Triple("Игры", "♟", "Время для весёлых побед"),
             Triple("Приложения", "▦", "Вся ваша коллекция"),
+            Triple("Галерея", "▧", "Фотографии и изображения"),
+            Triple("Карточки", "＋", "Настроить главный экран"),
+            Triple("Музыка", "♫", "Ваш праздничный MP3-плеер"),
             Triple("Настройки", "⚙", "Оформление и управление")
         )
         val columns = if (wide) 4 else 2
@@ -399,7 +466,7 @@ class MainActivity : Activity() {
                 card.addView(label(item.second, 27f, gold, true))
                 card.addView(label(item.first.uppercase(Locale.getDefault()), 10f, gold, true).apply { setPadding(0, dp(3), 0, dp(3)) })
                 card.addView(label(item.third, 10f, Color.rgb(238, 218, 203)).apply { maxLines = 2 })
-                card.setOnClickListener { selected = item.first; render() }
+                card.setOnClickListener { if (item.first == "Музыка") startActivity(Intent(this, ChristmasMusicActivity::class.java)) else { selected = item.first; render() } }
                 card.setOnFocusChangeListener { v, focused ->
                     v.background = glass(20, focused)
                     v.scaleX = if (focused) 1.035f else 1f
@@ -413,42 +480,202 @@ class MainActivity : Activity() {
             content.addView(row)
         }
         heading("МОИ КАРТОЧКИ")
-        content.addView(label("Добавляй приложения на главный экран или убирай карточки без удаления самих приложений.", 11f, ivory))
-        actionCard("＋  Добавить карточку приложения") { manageHomeCards(true) }
-        actionCard("−  Удалить карточку приложения") { manageHomeCards(false) }
-        actionCard("＋  Добавить карточку раздела") { manageHomeSections(true) }
-        actionCard("−  Удалить карточку раздела") { manageHomeSections(false) }
+        content.addView(label("Здесь отображаются только выбранные тобой приложения и разделы. Остальные приложения остаются в общем меню.", 11f, ivory))
+        actionCard("⚙  Управление карточками") { selected = "Карточки"; render() }
         val pinned = pinnedApps()
-        if (pinned.isNotEmpty()) appGrid(pinned)
+        if (pinned.isEmpty()) {
+            content.addView(label("Пока нет выбранных приложений. Открой «Управление карточками», чтобы добавить нужные.", 12f, ivory))
+        } else {
+            appGrid(pinned, homeCardsOnly = true)
+        }
         val pinnedSections = wallpaperPrefs.getStringSet("home_card_sections", emptySet()) ?: emptySet()
-        pinnedSections.forEach { section -> actionCard("✦  $section") { selected = section; render() } }
-        heading("БЫСТРЫЙ ДОСТУП")
-        appGrid(installedApps().take(if (wide) 12 else 8))
+        pinnedSections.forEach { section ->
+            actionCard(
+                "✦  $section",
+                action = { if (section == "Музыка") startActivity(Intent(this, ChristmasMusicActivity::class.java)) else { selected = section; render() } },
+                longAction = { removeHomeSection(section) }
+            )
+        }
+    }
+
+    private fun cardsManager() {
+        heading("УПРАВЛЕНИЕ КАРТОЧКАМИ")
+        content.addView(label("Здесь можно добавлять и убирать карточки приложений и разделов. Удаление карточки не удаляет само приложение.", 12f, ivory))
+        actionCard("＋  ДОБАВИТЬ карточку приложения") { manageHomeCards(true) }
+        actionCard("−  УБРАТЬ карточку приложения") { manageHomeCards(false) }
+        actionCard("＋  ДОБАВИТЬ карточку раздела") { manageHomeSections(true) }
+        actionCard("−  УБРАТЬ карточку раздела") { manageHomeSections(false) }
+        heading("УЖЕ ДОБАВЛЕНО")
+        val pins = pinnedApps()
+        if (pins.isEmpty()) content.addView(label("Карточки приложений пока не добавлены.", 12f, ivory))
+        else appGrid(pins, homeCardsOnly = true)
+        val pinnedSections = wallpaperPrefs.getStringSet("home_card_sections", emptySet()) ?: emptySet()
+        if (pinnedSections.isEmpty()) content.addView(label("Карточки разделов пока не добавлены.", 12f, ivory))
+        else pinnedSections.sorted().forEach { section ->
+            actionCard(
+                "✦  $section",
+                action = { if (section == "Музыка") startActivity(Intent(this, ChristmasMusicActivity::class.java)) else { selected = section; render() } },
+                longAction = { removeHomeSection(section) }
+            )
+        }
+    }
+
+    private fun gallerySection() {
+        heading("ВАША ГАЛЕРЕЯ")
+        content.addView(label("Откройте фотографии и изображения из памяти телевизора или с подключённого USB-накопителя.", 12f, ivory))
+        val galleryApps = installedApps().filter { info ->
+            val n = (info.loadLabel(packageManager).toString() + " " + info.activityInfo.packageName).lowercase(Locale.getDefault())
+            listOf("gallery", "photos", "photo", "галере", "фото", "image").any { n.contains(it) }
+        }
+        if (galleryApps.isNotEmpty()) {
+            heading("УСТАНОВЛЕННЫЕ ПРИЛОЖЕНИЯ")
+            appGrid(galleryApps)
+        }
+        actionCard("▧  ОТКРЫТЬ ФОТОГАЛЕРЕЮ") { openGalleryPicker() }
+        actionCard("▧  Выбрать изображение из памяти или USB") { openGalleryPicker() }
+        content.addView(label("Если отдельное приложение «Галерея» не установлено или скрыто производителем телевизора, Android откроет системный выбор изображений. Это позволит просматривать доступные фотографии.", 11f, ivory))
+    }
+
+    private fun openGalleryPicker() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+            type = "image/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+        }
+        try {
+            startActivity(Intent.createChooser(intent, "Открыть галерею"))
+        } catch (_: Exception) {
+            try {
+                startActivity(Intent(Intent.ACTION_PICK).apply { type = "image/*" })
+            } catch (_: Exception) {
+                android.widget.Toast.makeText(this, "На телевизоре нет доступного приложения для просмотра изображений", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun orderedPinnedPackages(pins: Set<String>): MutableList<String> {
+        val saved = wallpaperPrefs.getString("home_card_order", "").orEmpty()
+            .split("|").filter { it.isNotBlank() && it in pins }
+        val ordered = saved.distinct().toMutableList()
+        val missing = pins.filter { it !in ordered }.sortedBy { pkg ->
+            runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString().lowercase(Locale.getDefault()) }.getOrDefault(pkg)
+        }
+        ordered.addAll(missing)
+        return ordered
     }
 
     private fun pinnedApps(): List<android.content.pm.ResolveInfo> {
         val pins = wallpaperPrefs.getStringSet("home_card_packages", emptySet()) ?: emptySet()
-        return installedApps().filter { it.activityInfo.packageName in pins }
+        val byPackage = installedApps().associateBy { it.activityInfo.packageName }
+        return orderedPinnedPackages(pins).mapNotNull { byPackage[it] }
+    }
+
+    private fun saveHomePins(pins: Set<String>, order: List<String> = orderedPinnedPackages(pins)) {
+        wallpaperPrefs.edit()
+            .putStringSet("home_card_packages", pins)
+            .putString("home_card_order", order.filter { it in pins }.distinct().joinToString("|"))
+            .apply()
+    }
+
+    private fun moveHomeCard(pkg: String, direction: Int) {
+        val pins = wallpaperPrefs.getStringSet("home_card_packages", emptySet()) ?: emptySet()
+        val order = orderedPinnedPackages(pins)
+        val index = order.indexOf(pkg)
+        val target = index + direction
+        if (index < 0 || target !in order.indices) return
+        val item = order[index]
+        order[index] = order[target]
+        order[target] = item
+        saveHomePins(pins, order)
+        render()
     }
 
     private fun manageHomeCards(add: Boolean) {
         val apps = installedApps()
         if (apps.isEmpty()) return
         val current = (wallpaperPrefs.getStringSet("home_card_packages", emptySet()) ?: emptySet()).toMutableSet()
-        val candidates = if (add) apps.filter { it.activityInfo.packageName !in current } else apps.filter { it.activityInfo.packageName in current }
-        if (candidates.isEmpty()) {
-            android.widget.Toast.makeText(this, if (add) "Все доступные приложения уже добавлены" else "На главном экране пока нет добавленных карточек", android.widget.Toast.LENGTH_SHORT).show()
-            return
+        val search = android.widget.EditText(this).apply {
+            hint = "Поиск приложения"
+            setSingleLine(true)
+            textSize = 15f
+            setTextColor(ivory)
+            setHintTextColor(0xFFBFAE9D.toInt())
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+            background = shape(0xFF342632.toInt(), 14, 0x66D9B66F)
         }
-        val labels = candidates.map { it.loadLabel(packageManager).toString() }.toTypedArray()
-        AlertDialog.Builder(this).setTitle(if (add) "Добавить карточку" else "Удалить карточку с главного экрана")
-            .setItems(labels) { _, which ->
-                val pkg = candidates[which].activityInfo.packageName
-                if (add) current.add(pkg) else current.remove(pkg)
-                wallpaperPrefs.edit().putStringSet("home_card_packages", current).apply()
+        val adapter = android.widget.ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, mutableListOf())
+        val list = android.widget.ListView(this).apply {
+            this.adapter = adapter
+            divider = android.graphics.drawable.ColorDrawable(0x557A5A43)
+            dividerHeight = dp(1)
+            isFocusable = true
+            isFocusableInTouchMode = true
+        }
+        var visibleApps = emptyList<android.content.pm.ResolveInfo>()
+        fun refreshList() {
+            val query = search.text?.toString()?.trim()?.lowercase(Locale.getDefault()).orEmpty()
+            visibleApps = apps.filter { info ->
+                val pkg = info.activityInfo.packageName
+                val allowed = if (add) pkg !in current else pkg in current
+                allowed && (query.isEmpty() ||
+                    info.loadLabel(packageManager).toString().lowercase(Locale.getDefault()).contains(query) ||
+                    pkg.lowercase(Locale.getDefault()).contains(query))
+            }
+            adapter.clear()
+            adapter.addAll(visibleApps.map { info ->
+                val name = info.loadLabel(packageManager).toString()
+                if (add) "＋   $name" else "−   $name"
+            })
+            adapter.notifyDataSetChanged()
+        }
+        list.setOnItemClickListener { _, _, position, _ ->
+            val info = visibleApps.getOrNull(position) ?: return@setOnItemClickListener
+            val pkg = info.activityInfo.packageName
+            val order = orderedPinnedPackages(current)
+            if (add) {
+                current.add(pkg)
+                order.add(pkg)
+            } else {
+                current.remove(pkg)
+                order.remove(pkg)
+            }
+            saveHomePins(current, order)
+            refreshList()
+            android.widget.Toast.makeText(this,
+                if (add) "Карточка добавлена на главный экран" else "Карточка убрана. Приложение осталось установленным.",
+                android.widget.Toast.LENGTH_SHORT).show()
+        }
+        search.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = refreshList()
+            override fun afterTextChanged(s: android.text.Editable?) = Unit
+        })
+        refreshList()
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            addView(search, LinearLayout.LayoutParams(-1, dp(48)).apply { bottomMargin = dp(8) })
+            addView(list, LinearLayout.LayoutParams(-1, dp(330)))
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(if (add) "Добавить карточки на главный экран" else "Убрать карточки с главного экрана")
+            .setView(panel)
+            .setNegativeButton("Готово", null)
+            .create()
+        dialog.show()
+    }
+
+    private fun removeHomeSection(section: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Убрать карточку раздела?")
+            .setMessage("Раздел «$section» исчезнет только с главного экрана. Сам раздел и его содержимое останутся доступны в меню.")
+            .setPositiveButton("Убрать с главного экрана") { _, _ ->
+                val current = (wallpaperPrefs.getStringSet("home_card_sections", emptySet()) ?: emptySet()).toMutableSet()
+                current.remove(section)
+                wallpaperPrefs.edit().putStringSet("home_card_sections", current).apply()
                 render()
-                android.widget.Toast.makeText(this, if (add) "Карточка добавлена" else "Карточка убрана. Приложение осталось установленным.", android.widget.Toast.LENGTH_SHORT).show()
-            }.setNegativeButton("Отмена", null).show()
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
     }
 
     private fun manageHomeSections(add: Boolean) {
@@ -512,7 +739,7 @@ class MainActivity : Activity() {
     private fun toggleMusic() {
         val enabled = !wallpaperPrefs.getBoolean("jingle_music_enabled", true)
         wallpaperPrefs.edit().putBoolean("jingle_music_enabled", enabled).apply()
-        if (enabled && !isFinishing) musicPlayer.start() else musicPlayer.stop()
+        if (enabled && !isFinishing) musicPlayer.start(wallpaperPrefs.getString("custom_music_uri", null)) else musicPlayer.stop()
         render()
     }
 
@@ -530,6 +757,14 @@ class MainActivity : Activity() {
             else -> "ВСЕ УСТАНОВЛЕННЫЕ ПРИЛОЖЕНИЯ"
         }
         heading(subtitle)
+        if (section == "Фильмы") {
+            actionCard("🎬   Открыть Christmas Cinema — выбрать фильм") {
+                startActivity(Intent(this, ChristmasCinemaActivity::class.java))
+            }
+            content.addView(label("Поддерживаются видео с USB-флешки и из памяти устройства. Выбирай несколько файлов, чтобы создать очередь просмотра.", 12f, ivory).apply {
+                setPadding(dp(4), dp(6), dp(4), dp(10))
+            })
+        }
         val apps = installedApps().filter { app ->
             val name = app.loadLabel(packageManager).toString().lowercase(Locale.getDefault())
             when (section) {
@@ -555,7 +790,7 @@ class MainActivity : Activity() {
         appGrid(apps.take(60))
     }
 
-    private fun appGrid(apps: List<android.content.pm.ResolveInfo>) {
+    private fun appGrid(apps: List<android.content.pm.ResolveInfo>, homeCardsOnly: Boolean = false) {
         if (apps.isEmpty()) {
             content.addView(label("Пока нет установленных приложений.", 13f, ivory))
             return
@@ -569,35 +804,121 @@ class MainActivity : Activity() {
         apps.chunked(columns).forEach { group ->
             val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
             group.forEach { info ->
+                val appName = info.loadLabel(packageManager).toString()
                 val card = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
                     gravity = Gravity.CENTER
-                    background = glass(18)
-                    setPadding(dp(5), dp(9), dp(5), dp(9))
+                    background = glass(19)
+                    setPadding(dp(7), dp(10), dp(7), dp(8))
                     isFocusable = true
+                    isFocusableInTouchMode = false
                     isClickable = true
+                    elevation = dp(3).toFloat()
+                    contentDescription = "Открыть приложение $appName. Удерживайте, чтобы управлять карточкой на главном экране."
+                }
+                val iconFrame = FrameLayout(this).apply {
+                    background = GradientDrawable(
+                        GradientDrawable.Orientation.TL_BR,
+                        intArrayOf(0xB85B3442.toInt(), 0xA52B2634.toInt())
+                    ).apply {
+                        cornerRadius = dp(15).toFloat()
+                        setStroke(dp(1), 0x77E7C88D)
+                    }
                 }
                 val icon = try { info.loadIcon(packageManager) } catch (_: Exception) { null }
-                card.addView(ImageView(this).apply {
+                iconFrame.addView(ImageView(this).apply {
                     if (icon != null) setImageDrawable(icon)
                     scaleType = ImageView.ScaleType.FIT_CENTER
-                }, LinearLayout.LayoutParams(dp(42), dp(42)))
-                card.addView(label(info.loadLabel(packageManager).toString(), 11f, white, true).apply {
+                    contentDescription = appName
+                }, FrameLayout.LayoutParams(dp(42), dp(42), Gravity.CENTER))
+                card.addView(iconFrame, LinearLayout.LayoutParams(dp(54), dp(54)).apply {
+                    bottomMargin = dp(7)
+                })
+                card.addView(label(appName, 11f, ivory, true).apply {
                     gravity = Gravity.CENTER
                     maxLines = 2
+                    minLines = 2
                     textAlignment = View.TEXT_ALIGNMENT_CENTER
-                })
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                }, LinearLayout.LayoutParams(-1, -2))
                 card.setOnClickListener { launch(info.activityInfo.packageName) }
-                card.setOnFocusChangeListener { v, focused ->
-                    v.background = glass(18, focused)
-                    v.scaleX = if (focused) 1.04f else 1f
-                    v.scaleY = if (focused) 1.04f else 1f
+                var remoteLongPressHandled = false
+                card.setOnKeyListener { _, keyCode, event ->
+                    val selectKey = keyCode == android.view.KeyEvent.KEYCODE_DPAD_CENTER ||
+                        keyCode == android.view.KeyEvent.KEYCODE_ENTER ||
+                        keyCode == android.view.KeyEvent.KEYCODE_NUMPAD_ENTER
+                    if (!selectKey) return@setOnKeyListener false
+                    when (event.action) {
+                        android.view.KeyEvent.ACTION_DOWN -> {
+                            if (event.repeatCount > 0 && event.eventTime - event.downTime >= 450L && !remoteLongPressHandled) {
+                                remoteLongPressHandled = true
+                                showAppCardMenu(info, homeCardsOnly)
+                                true
+                            } else remoteLongPressHandled
+                        }
+                        android.view.KeyEvent.ACTION_UP -> {
+                            val consumed = remoteLongPressHandled
+                            remoteLongPressHandled = false
+                            consumed
+                        }
+                        else -> remoteLongPressHandled
+                    }
                 }
-                row.addView(card, LinearLayout.LayoutParams(0, dp(94), 1f).apply { rightMargin = dp(5); bottomMargin = dp(7) })
+                card.setOnLongClickListener {
+                    showAppCardMenu(info, homeCardsOnly)
+                    true
+                }
+                card.setOnFocusChangeListener { v, focused ->
+                    v.background = glass(19, focused)
+                    v.animate().scaleX(if (focused) 1.045f else 1f)
+                        .scaleY(if (focused) 1.045f else 1f)
+                        .translationZ(if (focused) dp(5).toFloat() else 0f)
+                        .setDuration(140L).start()
+                }
+                row.addView(card, LinearLayout.LayoutParams(0, dp(112), 1f).apply {
+                    rightMargin = dp(5)
+                    leftMargin = dp(2)
+                    bottomMargin = dp(8)
+                })
             }
-            if (group.size < columns) row.addView(View(this), LinearLayout.LayoutParams(0, dp(94), (columns - group.size).toFloat()))
+            if (group.size < columns) row.addView(View(this), LinearLayout.LayoutParams(0, dp(112), (columns - group.size).toFloat()))
             content.addView(row)
         }
+    }
+
+    private fun showAppCardMenu(info: android.content.pm.ResolveInfo, homeCardsOnly: Boolean) {
+        val pkg = info.activityInfo.packageName
+        val appName = info.loadLabel(packageManager).toString()
+        val current = (wallpaperPrefs.getStringSet("home_card_packages", emptySet()) ?: emptySet()).toMutableSet()
+        val isPinned = pkg in current
+        val order = orderedPinnedPackages(current)
+        val actions = mutableListOf<Pair<String, () -> Unit>>()
+        if (isPinned || homeCardsOnly) {
+            actions.add("Убрать карточку с главного экрана" to {
+                current.remove(pkg)
+                saveHomePins(current, order.filter { it != pkg })
+                render()
+                android.widget.Toast.makeText(this, "Карточка убрана. Приложение осталось установленным.", android.widget.Toast.LENGTH_SHORT).show()
+            })
+            val index = order.indexOf(pkg)
+            if (index > 0) actions.add("Переместить влево" to { moveHomeCard(pkg, -1) })
+            if (index >= 0 && index < order.lastIndex) actions.add("Переместить вправо" to { moveHomeCard(pkg, 1) })
+        } else {
+            actions.add("Добавить карточку на главный экран" to {
+                val updated = orderedPinnedPackages(current)
+                current.add(pkg)
+                updated.add(pkg)
+                saveHomePins(current, updated)
+                render()
+                android.widget.Toast.makeText(this, "Карточка добавлена на главный экран.", android.widget.Toast.LENGTH_SHORT).show()
+            })
+        }
+        actions.add("Открыть приложение" to { launch(pkg) })
+        AlertDialog.Builder(this)
+            .setTitle(appName)
+            .setItems(actions.map { it.first }.toTypedArray()) { _, which -> actions.getOrNull(which)?.second?.invoke() }
+            .setNegativeButton("Отмена", null)
+            .show()
     }
 
     private fun installedApps(): List<android.content.pm.ResolveInfo> {
@@ -628,6 +949,11 @@ class MainActivity : Activity() {
         content.addView(info)
         actionCard("🕰   Выбрать дизайн ледяных часов") { chooseClockSkin() }
         actionCard("♫   Фоновая музыка: " + if (wallpaperPrefs.getBoolean("jingle_music_enabled", true)) "ВКЛ" else "ВЫКЛ") { toggleMusic() }
+        actionCard("♫   Открыть рождественский MP3-плеер") { startActivity(Intent(this, ChristmasMusicActivity::class.java)) }
+        actionCard("♫   Выбрать свою фоновую музыку") { chooseMusic() }
+        actionCard("↺   Вернуть встроенную музыку") { resetMusic() }
+        val selectedTrack = wallpaperPrefs.getString("custom_music_uri", null)
+        content.addView(label(if (selectedTrack == null) "Сейчас: встроенная праздничная мелодия" else "Сейчас: выбран ваш аудиофайл", 11f, ivory).apply { setPadding(dp(4), dp(3), 0, dp(5)) })
         actionCard("🎆   Новогодний сюрприз: " + if (wallpaperPrefs.getBoolean("new_year_enabled", true)) "ВКЛ" else "ВЫКЛ") { toggleNewYear() }
         actionCard("🖼   Выбрать свой фон") { chooseWallpaper() }
         actionCard("↺   Вернуть праздничный фон") { resetWallpaper() }
@@ -654,6 +980,26 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun chooseMusic() {
+        val picker = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "audio/*"
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+        }
+        try { startActivityForResult(picker, musicRequestCode) }
+        catch (_: Exception) {
+            android.widget.Toast.makeText(this, "Не удалось открыть выбор аудиофайла", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun resetMusic() {
+        wallpaperPrefs.edit().remove("custom_music_uri").apply()
+        musicPlayer.stop()
+        if (wallpaperPrefs.getBoolean("jingle_music_enabled", true)) musicPlayer.start()
+        render()
+        android.widget.Toast.makeText(this, "Встроенная праздничная музыка восстановлена", android.widget.Toast.LENGTH_SHORT).show()
+    }
+
     private fun resetWallpaper() {
         wallpaperPrefs.edit().remove("custom_wallpaper_uri").apply()
         setDefaultWallpaper()
@@ -663,8 +1009,23 @@ class MainActivity : Activity() {
     @Deprecated("Deprecated in Android API; kept for broad device compatibility")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != wallpaperRequestCode || resultCode != RESULT_OK) return
+        if (resultCode != RESULT_OK) return
         val uri = data?.data ?: return
+        if (requestCode == musicRequestCode) {
+            try {
+                val permission = data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION
+                contentResolver.takePersistableUriPermission(uri, permission)
+                wallpaperPrefs.edit().putString("custom_music_uri", uri.toString()).apply()
+                musicPlayer.stop()
+                if (wallpaperPrefs.getBoolean("jingle_music_enabled", true)) musicPlayer.start(uri.toString())
+                render()
+                android.widget.Toast.makeText(this, "Ваша музыка установлена", android.widget.Toast.LENGTH_SHORT).show()
+            } catch (_: Exception) {
+                android.widget.Toast.makeText(this, "Не удалось сохранить доступ к этому аудиофайлу. Выберите файл из памяти устройства.", android.widget.Toast.LENGTH_LONG).show()
+            }
+            return
+        }
+        if (requestCode != wallpaperRequestCode) return
         try {
             val permission = data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION
             contentResolver.takePersistableUriPermission(uri, permission)
@@ -682,15 +1043,58 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun actionCard(value: String, action: () -> Unit) {
-        val v = label(value, 15f, red, true)
-        v.background = shape(white, 18, 0xFFFFDCA7.toInt())
-        v.setPadding(dp(16), dp(15), dp(16), dp(15))
-        v.isFocusable = true
-        v.setOnClickListener { action() }
-        v.setOnFocusChangeListener { view, focused -> view.background = shape(if (focused) Color.rgb(255, 224, 190) else white, 18, red) }
-        content.addView(v, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
+    private fun actionCard(value: String, longAction: (() -> Unit)? = null, action: () -> Unit) {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = premiumActionBackground(false)
+            setPadding(dp(17), dp(14), dp(17), dp(14))
+            isFocusable = true
+            isClickable = true
+            isFocusableInTouchMode = false
+            elevation = dp(3).toFloat()
+            contentDescription = value
+        }
+        val accent = View(this).apply {
+            background = shape(0xFFE7BD72.toInt(), 3, 0)
+        }
+        card.addView(accent, LinearLayout.LayoutParams(dp(3), dp(34)).apply { rightMargin = dp(14) })
+        card.addView(label(value, 14f, 0xFFFFEBD0.toInt(), true), LinearLayout.LayoutParams(0, -2, 1f))
+        card.addView(label("›", 27f, 0xFFE8C47F.toInt(), true))
+        card.setOnClickListener { action() }
+        if (longAction != null) {
+            card.contentDescription = "$value. Удерживайте, чтобы убрать карточку с главного экрана."
+            card.setOnLongClickListener {
+                val sectionName = value.removePrefix("✦  ")
+                AlertDialog.Builder(this)
+                    .setTitle("Карточка раздела")
+                    .setMessage("Убрать «$sectionName» с главного экрана? Сам раздел останется доступен в меню.")
+                    .setPositiveButton("Убрать") { _, _ -> longAction() }
+                    .setNegativeButton("Отмена", null)
+                    .show()
+                true
+            }
+        }
+        card.setOnFocusChangeListener { view, focused ->
+            view.background = premiumActionBackground(focused)
+            view.animate().scaleX(if (focused) 1.015f else 1f).scaleY(if (focused) 1.015f else 1f)
+                .setDuration(130L).start()
+        }
+        content.addView(card, LinearLayout.LayoutParams(-1, -2).apply {
+            topMargin = dp(8)
+            bottomMargin = dp(2)
+        })
     }
+
+    private fun premiumActionBackground(focused: Boolean): GradientDrawable =
+        GradientDrawable(
+            GradientDrawable.Orientation.LEFT_RIGHT,
+            if (focused) intArrayOf(0xFFF4DFC0.toInt(), 0xFFE8C68D.toInt())
+            else intArrayOf(0xE63B2635.toInt(), 0xE625202D.toInt())
+        ).apply {
+            cornerRadius = dp(17).toFloat()
+            setStroke(dp(if (focused) 2 else 1), if (focused) 0xFFFFF0D4.toInt() else 0x77D9B77D)
+        }
 
     private fun returnToStock() {
         AlertDialog.Builder(this)
