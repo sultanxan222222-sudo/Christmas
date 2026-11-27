@@ -318,6 +318,7 @@ class MainActivity : Activity() {
     }
 
     private fun showOverflowMenu(anchor: View) {
+        lateinit var menu: PopupWindow
         val items = listOf(
             "▦   МОИ ПЛИТКИ НА ГЛАВНОЙ" to { showHomeTilesManager() },
             "☾   КАЛЕНДАРЬ ХИДЖРЫ" to { openSection("Календарь") },
@@ -373,7 +374,7 @@ class MainActivity : Activity() {
             panel.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(4) })
         }
         val scroller = ScrollView(this).apply { isFillViewport = false; addView(panel) }
-        val menu = PopupWindow(scroller, dp(286), dp(440), true).apply {
+        menu = PopupWindow(scroller, dp(286), dp(440), true).apply {
             setBackgroundDrawable(GradientDrawable().apply { setColor(0xFF08251F.toInt()); cornerRadius = dp(20).toFloat() })
             elevation = dp(18).toFloat()
             isOutsideTouchable = true
