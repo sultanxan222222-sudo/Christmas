@@ -487,9 +487,15 @@ class MainActivity : Activity() {
         actionCard("＋  Добавить карточку раздела") { manageHomeSections(true) }
         actionCard("−  Удалить карточку раздела") { manageHomeSections(false) }
         val pinned = pinnedApps()
-        if (pinned.isNotEmpty()) appGrid(pinned)
+        if (pinned.isNotEmpty()) appGrid(pinned, homeCardsOnly = true)
         val pinnedSections = wallpaperPrefs.getStringSet("home_card_sections", emptySet()) ?: emptySet()
-        pinnedSections.forEach { section -> actionCard("✦  $section") { if (section == "Музыка") startActivity(Intent(this, ChristmasMusicActivity::class.java)) else { selected = section; render() } } }
+        pinnedSections.forEach { section ->
+            actionCard(
+                "✦  $section",
+                action = { if (section == "Музыка") startActivity(Intent(this, ChristmasMusicActivity::class.java)) else { selected = section; render() } },
+                longAction = { removeHomeSection(section) }
+            )
+        }
         heading("БЫСТРЫЙ ДОСТУП")
         appGrid(installedApps().take(if (wide) 12 else 8))
     }
@@ -504,10 +510,16 @@ class MainActivity : Activity() {
         heading("УЖЕ ДОБАВЛЕНО")
         val pins = pinnedApps()
         if (pins.isEmpty()) content.addView(label("Карточки приложений пока не добавлены.", 12f, ivory))
-        else appGrid(pins)
+        else appGrid(pins, homeCardsOnly = true)
         val pinnedSections = wallpaperPrefs.getStringSet("home_card_sections", emptySet()) ?: emptySet()
         if (pinnedSections.isEmpty()) content.addView(label("Карточки разделов пока не добавлены.", 12f, ivory))
-        else pinnedSections.sorted().forEach { section -> actionCard("✦  $section") { selected = section; render() } }
+        else pinnedSections.sorted().forEach { section ->
+            actionCard(
+                "✦  $section",
+                action = { if (section == "Музыка") startActivity(Intent(this, ChristmasMusicActivity::class.java)) else { selected = section; render() } },
+                longAction = { removeHomeSection(section) }
+            )
+        }
     }
 
     private fun gallerySection() {
@@ -565,6 +577,20 @@ class MainActivity : Activity() {
                 render()
                 android.widget.Toast.makeText(this, if (add) "Карточка добавлена" else "Карточка убрана. Приложение осталось установленным.", android.widget.Toast.LENGTH_SHORT).show()
             }.setNegativeButton("Отмена", null).show()
+    }
+
+    private fun removeHomeSection(section: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Убрать карточку раздела?")
+            .setMessage("Раздел «$section» исчезнет только с главного экрана. Сам раздел и его содержимое останутся доступны в меню.")
+            .setPositiveButton("Убрать с главного экрана") { _, _ ->
+                val current = (wallpaperPrefs.getStringSet("home_card_sections", emptySet()) ?: emptySet()).toMutableSet()
+                current.remove(section)
+                wallpaperPrefs.edit().putStringSet("home_card_sections", current).apply()
+                render()
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
     }
 
     private fun manageHomeSections(add: Boolean) {
@@ -679,7 +705,7 @@ class MainActivity : Activity() {
         appGrid(apps.take(60))
     }
 
-    private fun appGrid(apps: List<android.content.pm.ResolveInfo>) {
+    private fun appGrid(apps: List<android.content.pm.ResolveInfo>, homeCardsOnly: Boolean = false) {
         if (apps.isEmpty()) {
             content.addView(label("Пока нет установленных приложений.", 13f, ivory))
             return
@@ -703,7 +729,7 @@ class MainActivity : Activity() {
                     isFocusableInTouchMode = false
                     isClickable = true
                     elevation = dp(3).toFloat()
-                    contentDescription = "Открыть приложение $appName"
+                    contentDescription = "Открыть приложение $appName. Удерживайте, чтобы управлять карточкой на главном экране."
                 }
                 val iconFrame = FrameLayout(this).apply {
                     background = GradientDrawable(
@@ -731,6 +757,10 @@ class MainActivity : Activity() {
                     ellipsize = android.text.TextUtils.TruncateAt.END
                 }, LinearLayout.LayoutParams(-1, -2))
                 card.setOnClickListener { launch(info.activityInfo.packageName) }
+                card.setOnLongClickListener {
+                    showAppCardMenu(info, homeCardsOnly)
+                    true
+                }
                 card.setOnFocusChangeListener { v, focused ->
                     v.background = glass(19, focused)
                     v.animate().scaleX(if (focused) 1.045f else 1f)
@@ -747,6 +777,37 @@ class MainActivity : Activity() {
             if (group.size < columns) row.addView(View(this), LinearLayout.LayoutParams(0, dp(112), (columns - group.size).toFloat()))
             content.addView(row)
         }
+    }
+
+    private fun showAppCardMenu(info: android.content.pm.ResolveInfo, homeCardsOnly: Boolean) {
+        val pkg = info.activityInfo.packageName
+        val appName = info.loadLabel(packageManager).toString()
+        val current = (wallpaperPrefs.getStringSet("home_card_packages", emptySet()) ?: emptySet()).toMutableSet()
+        val isPinned = pkg in current
+        val actions = if (isPinned) {
+            arrayOf("Убрать карточку с главного экрана", "Открыть приложение")
+        } else {
+            arrayOf("Добавить карточку на главный экран", "Открыть приложение")
+        }
+        AlertDialog.Builder(this)
+            .setTitle(appName)
+            .setItems(actions) { _, which ->
+                when (which) {
+                    0 -> {
+                        if (isPinned) current.remove(pkg) else current.add(pkg)
+                        wallpaperPrefs.edit().putStringSet("home_card_packages", current).apply()
+                        render()
+                        android.widget.Toast.makeText(
+                            this,
+                            if (isPinned) "Карточка убрана. Приложение осталось установленным." else "Карточка добавлена на главный экран.",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    1 -> launch(pkg)
+                }
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
     }
 
     private fun installedApps(): List<android.content.pm.ResolveInfo> {
@@ -871,7 +932,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun actionCard(value: String, action: () -> Unit) {
+    private fun actionCard(value: String, action: () -> Unit, longAction: (() -> Unit)? = null) {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -890,6 +951,18 @@ class MainActivity : Activity() {
         card.addView(label(value, 14f, 0xFFFFEBD0.toInt(), true), LinearLayout.LayoutParams(0, -2, 1f))
         card.addView(label("›", 27f, 0xFFE8C47F.toInt(), true))
         card.setOnClickListener { action() }
+        if (longAction != null) {
+            card.contentDescription = "$value. Удерживайте, чтобы убрать карточку с главного экрана."
+            card.setOnLongClickListener {
+                AlertDialog.Builder(this)
+                    .setTitle("Карточка раздела")
+                    .setMessage("Убрать «\${value.removePrefix("✦  ")}» с главного экрана? Сам раздел останется доступен в меню.")
+                    .setPositiveButton("Убрать") { _, _ -> longAction() }
+                    .setNegativeButton("Отмена", null)
+                    .show()
+                true
+            }
+        }
         card.setOnFocusChangeListener { view, focused ->
             view.background = premiumActionBackground(focused)
             view.animate().scaleX(if (focused) 1.015f else 1f).scaleY(if (focused) 1.015f else 1f)
