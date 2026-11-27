@@ -123,6 +123,7 @@ class ChristmasMusicActivity : Activity() {
         controls.addView(ornament("◀", "Предыдущая") { player.previous() })
         controls.addView(ornament("⤨", "Случайный порядок") {
             shuffle = !shuffle
+            player.shuffle = shuffle
             android.widget.Toast.makeText(this@ChristmasMusicActivity,
                 if (shuffle) "Случайный порядок включён" else "Обычный порядок", android.widget.Toast.LENGTH_SHORT).show()
         })
@@ -186,7 +187,7 @@ class ChristmasMusicActivity : Activity() {
             contentDescription = description
             isFocusable = true
             isClickable = true
-            setOnClickListener(action)
+            setOnClickListener { action() }
             setOnFocusChangeListener { v, focused ->
                 v.animate().scaleX(if (focused) 1.13f else 1f).scaleY(if (focused) 1.13f else 1f).setDuration(140).start()
             }
