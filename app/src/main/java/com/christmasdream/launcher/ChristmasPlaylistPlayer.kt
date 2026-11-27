@@ -21,6 +21,7 @@ class ChristmasPlaylistPlayer(
     var shuffle = false
     var repeatAll = true
     var repeatOne = false
+    private var volume = 0.8f
     private var player: MediaPlayer? = null
     var isPlaying = false
         private set
@@ -42,6 +43,7 @@ class ChristmasPlaylistPlayer(
                         .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
                 }
                 setDataSource(appContext, Uri.parse(track.uri))
+                setVolume(volume, volume)
                 setOnPreparedListener {
                     it.start()
                     this@ChristmasPlaylistPlayer.isPlaying = true
@@ -97,6 +99,11 @@ class ChristmasPlaylistPlayer(
         if (tracks.isEmpty()) return
         if (position > 3000) { seekTo(0); return }
         play(if (currentIndex > 0) currentIndex - 1 else tracks.lastIndex)
+    }
+
+    fun setVolume(value: Float) {
+        volume = value.coerceIn(0f, 1f)
+        try { player?.setVolume(volume, volume) } catch (_: Exception) { }
     }
 
     fun seekTo(value: Int) {
