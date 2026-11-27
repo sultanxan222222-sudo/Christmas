@@ -299,7 +299,7 @@ class MainActivity : Activity() {
         frame.addView(dots, FrameLayout.LayoutParams(dp(48), dp(48)))
         frame.addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
             dots.x = view.width * 0.265f
-            dots.y = (view.height - dp(51)).toFloat()
+            dots.y = view.height * 0.735f
         }
         return frame
     }
