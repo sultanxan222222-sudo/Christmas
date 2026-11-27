@@ -29,7 +29,7 @@ class MainActivity : Activity() {
     private val prayerNames = linkedMapOf("fajr" to "Фаджр", "dhuhr" to "Зухр", "asr" to "Аср", "maghrib" to "Магриб", "isha" to "Иша")
     private val handler = Handler(Looper.getMainLooper())
     private val timeFormat = SimpleDateFormat("HH:mm", Locale("ru")).apply { timeZone = TimeZone.getTimeZone("Europe/Moscow") }
-    private var heroScene: RamadanHeroScene? = null
+    private var heroScene: RamadanFilamentHeroView? = null
     private val updateClock = object : Runnable {
         override fun run() {
             if (::clockText.isInitialized) clockText.text = when (prefs.getInt("clock", 2)) {
@@ -39,7 +39,9 @@ class MainActivity : Activity() {
                 else -> "۞  " + SimpleDateFormat("HH:mm", Locale("ru")).apply { timeZone = TimeZone.getTimeZone("Europe/Moscow") }.format(Date()) + "  ۞"
             }
             if (::prayerText.isInitialized) updateNextPrayer()
-            heroScene?.invalidate()
+            heroScene?.setPrayerLightOn(isMinaretLit())
+            heroScene?.setPrayerLightOn(isMinaretLit())
+        heroScene?.invalidate()
             handler.postDelayed(this, 1000)
         }
     }
@@ -271,11 +273,10 @@ class MainActivity : Activity() {
 
     private fun createHeroScene(): FrameLayout {
         val frame = FrameLayout(this)
-        val scene = RamadanHeroScene(
-            this,
-            { isMinaretLit() },
-            { prefs.getInt("cat", 0) }
-        ) { showPrayerInfo() }
+        val scene = RamadanFilamentHeroView(this).apply {
+            setPrayerLightOn(isMinaretLit())
+            setOnClickListener { showPrayerInfo() }
+        }
         heroScene = scene
         frame.addView(scene, FrameLayout.LayoutParams(-1, -1))
 
