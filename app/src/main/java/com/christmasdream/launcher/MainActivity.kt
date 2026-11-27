@@ -305,13 +305,13 @@ class MainActivity : Activity() {
     }
 
     private fun showPrayerInfo() {
-        val times = prayerNames.entries.joinToString("\\n") { (key, name) ->
+        val times = prayerNames.entries.joinToString("\n") { (key, name) ->
             "$name  •  ${prayerTimes[key] ?: "--:--"}"
         }
         val state = if (isMinaretLit()) "Сейчас включена подсветка мечети." else "Подсветка включается к началу времени каждого намаза."
         AlertDialog.Builder(this)
             .setTitle("Мечеть Рамадана • Грозный")
-            .setMessage("$times\\n\\n$state")
+            .setMessage("$times\n\n$state")
             .setPositiveButton("Понятно", null)
             .show()
     }
@@ -624,77 +624,9 @@ class MainActivity : Activity() {
         return grid
     }
 
-    private fun legacyUnusedInstalledAppsGrid(): LinearLayout {
-        val apps = getInstalledLaunchableApps()
-        val grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        if (apps.isEmpty()) {
-            grid.addView(text("Не удалось получить список приложений.", 12f, 0xFFE5F5EA.toInt()))
-            return grid
-        }
-        val wide = resources.configuration.screenWidthDp >= 600
-        val columns = when {
-            resources.configuration.screenWidthDp >= 1000 -> 6
-            resources.configuration.screenWidthDp >= 700 -> 5
-            resources.configuration.screenWidthDp >= 500 -> 4
-            resources.configuration.screenWidthDp >= 380 -> 3
-            else -> 2
-        }
-        apps.chunked(columns).forEach { group ->
-            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            group.forEach { info ->
-                val appPackage = info.activityInfo.packageName
-                val tile = LinearLayout(this).apply {
-                    orientation = LinearLayout.VERTICAL
-                    gravity = Gravity.CENTER
-                    background = cardBg()
-                    setPadding(dp(5), dp(8), dp(5), dp(8))
-                    isFocusable = true
-                    isClickable = true
-                    contentDescription = "Открыть " + info.loadLabel(packageManager)
-                }
-                val icon = try { info.loadIcon(packageManager) } catch (_: Exception) { null }
-                tile.addView(ImageView(this).apply {
-                    if (icon != null) setImageDrawable(icon)
-                    scaleType = ImageView.ScaleType.FIT_CENTER
-                    contentDescription = null
-                }, LinearLayout.LayoutParams(dp(if (wide) 54 else 42), dp(if (wide) 54 else 42)))
-                tile.addView(text(info.loadLabel(packageManager).toString(), if (wide) 11f else 10f, Color.WHITE, true).apply {
-                    gravity = Gravity.CENTER
-                    textAlignment = View.TEXT_ALIGNMENT_CENTER
-                    maxLines = 2
-                    setPadding(0, dp(5), 0, 0)
-                }, LinearLayout.LayoutParams(-1, -2))
-                tile.setOnClickListener {
-                    try {
-                        val launchIntent = packageManager.getLaunchIntentForPackage(appPackage)
-                            ?: Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setPackage(appPackage)
-                        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        startActivity(launchIntent)
-                    } catch (_: Exception) {
-                        Toast.makeText(this, "Не удалось открыть приложение", Toast.LENGTH_SHORT).show()
-                    }
-                }
-                tile.setOnFocusChangeListener { v, focused ->
-                    v.background = cardBg(focused)
-                    v.scaleX = if (focused) 1.05f else 1f
-                    v.scaleY = if (focused) 1.05f else 1f
-                }
-                row.addView(tile, LinearLayout.LayoutParams(0, dp(if (wide) 112 else 94), 1f).apply {
-                    rightMargin = dp(5)
-                    bottomMargin = dp(7)
-                })
-            }
-            if (group.size < columns) {
-                row.addView(View(this), LinearLayout.LayoutParams(0, dp(if (wide) 112 else 94), (columns - group.size).toFloat()))
-            }
-            grid.addView(row)
-        }
-        return grid
-    }
-
     private fun chooseCat() {
         val cats = arrayOf("Белый пушистый", "Серый пушистый", "Рыжий пушистый")
-        AlertDialog.Builder(this).setTitle("Котёнок на полумесяце")
+        AlertDialog.Builder(this).setTitle("Котёнок под деревом")
             .setSingleChoiceItems(cats, prefs.getInt("cat", 0)) { dialog, which ->
                 prefs.edit().putInt("cat", which).apply(); dialog.dismiss(); buildScreen()
             }.setNegativeButton("Отмена", null).show()
