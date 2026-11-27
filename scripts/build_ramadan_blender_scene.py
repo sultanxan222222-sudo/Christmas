@@ -151,7 +151,6 @@ def make_flag(index, letter, x):
     bevel.width = 0.008
     bevel.segments = 2
     # Subtle cloth sway around its suspension point.
-    obj.location.x = x
     obj.keyframe_insert(data_path="rotation_euler", frame=1)
     obj.rotation_euler.y = math.radians(3.0)
     obj.keyframe_insert(data_path="rotation_euler", frame=20)
@@ -159,10 +158,6 @@ def make_flag(index, letter, x):
     obj.keyframe_insert(data_path="rotation_euler", frame=40)
     obj.rotation_euler.y = math.radians(3.0)
     obj.keyframe_insert(data_path="rotation_euler", frame=60)
-    if obj.animation_data and obj.animation_data.action:
-        for fc in obj.animation_data.action.fcurves:
-            for kp in fc.keyframe_points:
-                kp.interpolation = "SINE"
     text_curve = bpy.data.curves.new("Gold Ramadan lettering", "FONT")
     text_curve.body = letter
     text_curve.align_x = "CENTER"
