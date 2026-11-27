@@ -47,38 +47,48 @@ def pbr_material(name, color, metallic=0.0, roughness=0.35, emission=None):
     return mat
 
 def tint_mosque(objects):
-    targets = {
-        "Cut stone, warm limestone": (0.025, 0.22, 0.13, 1.0),
-        "Lead sheet domes and roofs": (0.018, 0.16, 0.095, 1.0),
-        "Stone trims and cornices, light": (0.12, 0.42, 0.27, 1.0),
+    # Force the architecture into the intended rich emerald palette.
+    # The source GLB uses textured material graphs that some glTF exporters
+    # flatten incorrectly; use explicit PBR Principled factors for reliable color.
+    palette = {
+        "Cut stone, warm limestone": ((0.018, 0.19, 0.115, 1.0), 0.22, 0.30),
+        "Lead sheet domes and roofs": ((0.008, 0.105, 0.065, 1.0), 0.48, 0.24),
+        "Stone trims and cornices, light": ((0.11, 0.34, 0.23, 1.0), 0.52, 0.22),
+        "Dome interior, gilded mosaic (plain)": ((0.24, 0.36, 0.19, 1.0), 0.62, 0.24),
+        "Window glass, dark": ((0.006, 0.022, 0.018, 1.0), 0.18, 0.16),
     }
     for obj in objects:
         if obj.type != "MESH":
             continue
-        for mat in obj.data.materials:
-            if not mat or mat.name not in targets or not mat.use_nodes:
+        for slot_index, mat in enumerate(list(obj.data.materials)):
+            if not mat:
                 continue
-            bsdf = mat.node_tree.nodes.get("Principled BSDF")
-            if not bsdf:
+            matched = next((v for key, v in palette.items() if key in mat.name), None)
+            if not matched:
                 continue
-            # Keep source texture detail and multiply it by an emerald tint.
-            base = bsdf.inputs.get("Base Color")
-            if base and base.is_linked:
-                source = base.links[0].from_socket
-                multiply = mat.node_tree.nodes.new("ShaderNodeMixRGB")
-                multiply.blend_type = "MULTIPLY"
-                multiply.inputs[0].default_value = 0.78
-                multiply.inputs[2].default_value = targets[mat.name]
-                mat.node_tree.links.new(source, multiply.inputs[1])
-                for link in list(base.links):
-                    mat.node_tree.links.remove(link)
-                mat.node_tree.links.new(multiply.outputs[0], base)
-            elif base:
-                base.default_value = targets[mat.name]
+            color, metallic, roughness = matched
+            # Make a dedicated material per source slot so all parts retain
+            # separate PBR response while avoiding unsupported texture mixes.
+            emerald_mat = mat.copy()
+            emerald_mat.name = "Ramadan Emerald • " + mat.name
+            emerald_mat.use_nodes = True
+            nodes = emerald_mat.node_tree.nodes
+            bsdf = nodes.get("Principled BSDF")
+            if bsdf:
+                base = bsdf.inputs.get("Base Color")
+                if base:
+                    for link in list(base.links):
+                        emerald_mat.node_tree.links.remove(link)
+                    base.default_value = color
+                bsdf.inputs["Metallic"].default_value = metallic
+                bsdf.inputs["Roughness"].default_value = roughness
+                if "Coat Weight" in bsdf.inputs:
+                    bsdf.inputs["Coat Weight"].default_value = 0.22
+            obj.data.materials[slot_index] = emerald_mat
 
 # Imported high-detail licensed source models.
 mosque_root, mosque_objects = import_group(
-    "mosque_two_minarets.glb", "Emerald Ottoman mosque", 0.035, (0.0, 0.0, 0.0)
+    "mosque_two_minarets.glb", "Emerald Ottoman mosque", 0.052, (0.0, 0.0, 0.0)
 )
 tint_mosque(mosque_objects)
 
@@ -219,13 +229,15 @@ star.rotation_euler.x = math.radians(90)
 
 # Real flame meshes and warm point lights inside the two glass lanterns.
 def create_flame(name, x, y):
-    levels = [(0.00, 0.075), (0.12, 0.065), (0.28, 0.042), (0.42, 0.018), (0.53, 0.0)]
-    segments = 20
+    # The source lantern glass occupies roughly z=0.16..0.34 after scaling.
+    # Keep the whole flame inside that glass envelope instead of above the roof.
+    levels = [(0.00, 0.024), (0.035, 0.022), (0.075, 0.015), (0.115, 0.007), (0.15, 0.0)]
+    segments = 32
     verts, faces = [], []
     for z, radius in levels:
         for i in range(segments):
             a = 2 * math.pi * i / segments
-            shift = 0.018 * (z / 0.53) ** 2
+            shift = 0.009 * (z / 0.15) ** 2
             verts.append((x + shift + radius * math.cos(a), y + radius * math.sin(a), z))
     for level in range(len(levels)-1):
         for i in range(segments):
@@ -238,19 +250,19 @@ def create_flame(name, x, y):
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.collection.objects.link(obj)
     obj.data.materials.append(flame_mat)
-    obj.location.z = 0.14
+    obj.location.z = 0.175
     obj.scale = (1, 1, 1)
-    for frame, sx, sy, sz in [(1, 1, 1, 1), (12, 0.92, 0.92, 1.08), (24, 1.06, 1.04, 0.94), (36, 0.94, 0.96, 1.05), (48, 1, 1, 1)]:
+    for frame, sx, sy, sz in [(1, 1, 1, 1), (12, 0.94, 0.94, 1.06), (24, 1.04, 1.03, 0.96), (36, 0.96, 0.97, 1.04), (48, 1, 1, 1)]:
         obj.scale = (sx, sy, sz)
         obj.keyframe_insert(data_path="scale", frame=frame)
     light_data = bpy.data.lights.new(name + " • warm glow", "POINT")
-    light_data.energy = 18
+    light_data.energy = 7
     light_data.color = (1.0, 0.32, 0.075)
     light_data.shadow_soft_size = 0.18
     light = bpy.data.objects.new(name + " • warm glow", light_data)
     bpy.context.collection.objects.link(light)
-    light.location = (x, y, 0.38)
-    for frame, energy in [(1, 18), (12, 23), (24, 16), (36, 22), (48, 18)]:
+    light.location = (x, y, 0.255)
+    for frame, energy in [(1, 7), (12, 9), (24, 6), (36, 8), (48, 7)]:
         light_data.energy = energy
         light_data.keyframe_insert(data_path="energy", frame=frame)
     return obj
