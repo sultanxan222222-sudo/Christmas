@@ -52,11 +52,17 @@ def tint_mosque(objects):
     # The source GLB uses textured material graphs that some glTF exporters
     # flatten incorrectly; use explicit PBR Principled factors for reliable color.
     palette = {
-        "Cut stone, warm limestone": ((0.018, 0.19, 0.115, 1.0), 0.22, 0.30),
-        "Lead sheet domes and roofs": ((0.008, 0.105, 0.065, 1.0), 0.48, 0.24),
-        "Stone trims and cornices, light": ((0.11, 0.34, 0.23, 1.0), 0.52, 0.22),
-        "Dome interior, gilded mosaic (plain)": ((0.24, 0.36, 0.19, 1.0), 0.62, 0.24),
-        "Window glass, dark": ((0.006, 0.022, 0.018, 1.0), 0.18, 0.16),
+        "Limestone ashlar": ((0.018, 0.235, 0.135, 1.0), 0.24, 0.31),
+        "Lead sheet": ((0.006, 0.105, 0.062, 1.0), 0.52, 0.23),
+        "Dressed limestone": ((0.12, 0.39, 0.255, 1.0), 0.48, 0.24),
+        "Dark interior": ((0.003, 0.018, 0.014, 1.0), 0.12, 0.22),
+        "Wrought iron": ((0.018, 0.075, 0.052, 1.0), 0.72, 0.25),
+        "Oak boarded door": ((0.095, 0.19, 0.105, 1.0), 0.22, 0.34),
+        "Gilded metal": ((0.72, 0.43, 0.12, 1.0), 0.82, 0.2),
+        "Window glass": ((0.006, 0.035, 0.026, 1.0), 0.28, 0.14),
+        "Leaded quarry glass": ((0.012, 0.09, 0.06, 1.0), 0.35, 0.18),
+        "White marble": ((0.16, 0.36, 0.24, 1.0), 0.35, 0.23),
+        "Glazed geometric tiles": ((0.012, 0.24, 0.14, 1.0), 0.38, 0.2),
     }
     for obj in objects:
         if obj.type != "MESH":
@@ -95,10 +101,10 @@ tint_mosque(mosque_objects)
 
 # Two mature broad-canopy trees frame the courtyard and physically anchor the banner rope.
 tree_root, tree_objects = import_group(
-    "broadleaf_canopy_tree.glb", "Blessed-tree-inspired left broad canopy", 0.090, (-2.28, -0.48, 0.0)
+    "broadleaf_canopy_tree.glb", "Blessed-tree-inspired left broad canopy", 0.145, (-2.42, -0.48, 0.0)
 )
 tree_right_root, tree_right_objects = import_group(
-    "broadleaf_canopy_tree.glb", "Right banner-anchor broad canopy", 0.090, (2.28, -0.48, 0.0)
+    "broadleaf_canopy_tree.glb", "Right banner-anchor broad canopy", 0.145, (2.42, -0.48, 0.0)
 )
 # Improve foliage readability while retaining the source meshes and textures.
 for tree_obj in tree_objects + tree_right_objects:
@@ -120,10 +126,10 @@ cat_root, cat_objects = import_group(
     "sleeping_cat.glb", "Sleeping kitten • clearly visible hero animal", 3.15, (-1.62, -1.18, 0.02)
 )
 lantern_left_root, lantern_left_objects = import_group(
-    "brass_hurricane_lantern.glb", "Left brass lantern", 3.65, (-1.22, -2.18, 0.0)
+    "brass_hurricane_lantern.glb", "Left brass lantern", 3.65, (-0.98, -2.25, 0.0)
 )
 lantern_right_root, lantern_right_objects = import_group(
-    "brass_hurricane_lantern.glb", "Right brass lantern", 3.65, (1.22, -2.18, 0.0)
+    "brass_hurricane_lantern.glb", "Right brass lantern", 3.65, (0.98, -2.25, 0.0)
 )
 
 # Warm gold, emerald textile and night-ground materials.
@@ -146,7 +152,7 @@ curve.bevel_depth = 0.012
 curve.bevel_resolution = 4
 spline = curve.splines.new("BEZIER")
 spline.bezier_points.add(2)
-for bp, co in zip(spline.bezier_points, [(-2.28, -0.62, 2.42), (0, -0.62, 2.27), (2.28, -0.62, 2.42)]):
+for bp, co in zip(spline.bezier_points, [(-2.42, -0.62, 2.82), (0, -0.62, 2.60), (2.42, -0.62, 2.82)]):
     bp.co = co
     bp.handle_left_type = "AUTO"
     bp.handle_right_type = "AUTO"
@@ -251,8 +257,8 @@ star.rotation_euler.x = math.radians(90)
 # Hand-finished 3D brass detailing around both lantern glass chambers:
 # engraved collars, eight structural ribs, a crown and a small finial.
 def decorate_lantern(cx, cy):
-    for z, radius, minor in [(0.155, 0.125, 0.009), (0.335, 0.125, 0.009),
-                             (0.185, 0.105, 0.004), (0.315, 0.105, 0.004)]:
+    for z, radius, minor in [(0.42, 0.125, 0.009), (0.72, 0.125, 0.009),
+                             (0.46, 0.105, 0.004), (0.68, 0.105, 0.004)]:
         bpy.ops.mesh.primitive_torus_add(
             major_segments=48, minor_segments=10,
             major_radius=radius, minor_radius=minor,
@@ -267,19 +273,19 @@ def decorate_lantern(cx, cy):
         y = cy + 0.112 * math.sin(angle)
         bpy.ops.mesh.primitive_cylinder_add(
             vertices=12, radius=0.0045, depth=0.155,
-            location=(x, y, 0.25)
+            location=(x, y, 0.57)
         )
         rib = bpy.context.object
         rib.name = "Lantern • brass glass guard rib"
         rib.data.materials.append(gold_light)
     bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=12, radius=0.025,
-                                         location=(cx, cy, 0.365))
+                                         location=(cx, cy, 0.755))
     crown = bpy.context.object
     crown.name = "Lantern • polished crown"
     crown.scale = (1.5, 1.5, 0.65)
     crown.data.materials.append(gold)
     bpy.ops.mesh.primitive_cone_add(vertices=24, radius1=0.018, radius2=0.002,
-                                    depth=0.055, location=(cx, cy, 0.405))
+                                    depth=0.055, location=(cx, cy, 0.795))
     finial = bpy.context.object
     finial.name = "Lantern • pointed finial"
     finial.data.materials.append(gold_light)
@@ -291,7 +297,7 @@ decorate_lantern(0.98, -2.25)
 def create_flame(name, x, y):
     # The source lantern glass occupies roughly z=0.16..0.34 after scaling.
     # Keep the whole flame inside that glass envelope instead of above the roof.
-    levels = [(0.00, 0.024), (0.035, 0.022), (0.075, 0.015), (0.115, 0.007), (0.15, 0.0)]
+    levels = [(0.00, 0.035), (0.055, 0.032), (0.12, 0.022), (0.19, 0.010), (0.25, 0.0)]
     segments = 32
     verts, faces = [], []
     for z, radius in levels:
@@ -310,7 +316,7 @@ def create_flame(name, x, y):
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.collection.objects.link(obj)
     obj.data.materials.append(flame_mat)
-    obj.location.z = 0.175
+    obj.location.z = 0.47
     obj.scale = (1, 1, 1)
     for frame, sx, sy, sz in [(1, 1, 1, 1), (12, 0.94, 0.94, 1.06), (24, 1.04, 1.03, 0.96), (36, 0.96, 0.97, 1.04), (48, 1, 1, 1)]:
         obj.scale = (sx, sy, sz)
@@ -321,7 +327,7 @@ def create_flame(name, x, y):
     light_data.shadow_soft_size = 0.18
     light = bpy.data.objects.new(name + " • warm glow", light_data)
     bpy.context.collection.objects.link(light)
-    light.location = (x, y, 0.255)
+    light.location = (x, y, 0.60)
     for frame, energy in [(1, 7), (12, 9), (24, 6), (36, 8), (48, 7)]:
         light_data.energy = energy
         light_data.keyframe_insert(data_path="energy", frame=frame)
