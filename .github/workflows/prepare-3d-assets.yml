@@ -46,6 +46,13 @@ jobs:
           assert len(gltf.get("animations", [])) >= 1, "Scene has no exported animation clips"
           print("Validated final scene:", len(gltf["meshes"]), "meshes;", len(gltf.get("materials", [])), "materials;", len(gltf.get("animations", [])), "animation clips;", len(data), "bytes")
           PY
+      - name: Upload rendered 3D scene preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ramadan-Dream-3D-Preview
+          path: ramadan-3d-preview.png
+          if-no-files-found: error
+          retention-days: 14
       - name: Package validated 3D assets
         run: |
           cd app/src/main/assets
