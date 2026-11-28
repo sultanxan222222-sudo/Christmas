@@ -99,81 +99,6 @@ mosque_root, mosque_objects = import_group(
 )
 tint_mosque(mosque_objects)
 
-# Hand-built architectural facade layer: custom meshwork authored in Blender
-# to enrich the imported massing with a coherent, inspectable 3D entrance.
-def add_box(name, location, scale, material, bevel=0.0):
-    bpy.ops.mesh.primitive_cube_add(size=1, location=location)
-    obj=bpy.context.object
-    obj.name=name
-    obj.dimensions=scale
-    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-    obj.data.materials.append(material)
-    if bevel:
-        mod=obj.modifiers.new("Hand-finished stone edges","BEVEL")
-        mod.width=bevel
-        mod.segments=3
-        obj.modifiers.new("Facade weighted normals","WEIGHTED_NORMAL")
-    return obj
-
-def add_arch_outline(name, cx, y, base_z, width, spring_z, crown_z, material, thickness=0.018):
-    # A true 3D extruded curve following the horseshoe-like pointed Islamic arch.
-    points=[(-width/2,base_z),(-width/2,spring_z)]
-    half=width/2
-    for i in range(25):
-        t=i/24
-        x=-half+2*half*t
-        z=spring_z+(crown_z-spring_z)*math.sin(math.pi*t)**0.78
-        points.append((x,z))
-    points.append((width/2,base_z))
-    curve=bpy.data.curves.new(name+" • carved profile","CURVE")
-    curve.dimensions="3D"
-    curve.bevel_depth=thickness
-    curve.bevel_resolution=4
-    spline=curve.splines.new("POLY")
-    spline.points.add(len(points)-1)
-    for p,(x,z) in zip(spline.points,points):
-        p.co=(cx+x,y,z,1)
-    obj=bpy.data.objects.new(name,curve)
-    bpy.context.collection.objects.link(obj)
-    obj.data.materials.append(material)
-    return obj
-
-# Main entrance: recessed double door, layered pointed arch, pilasters and gold archivolt.
-portal_y=-2.035
-add_box("Custom mosque • recessed emerald double door",(0,portal_y,0.57),(0.70,0.055,0.94),emerald,0.025)
-add_box("Custom mosque • door central seam",(0,portal_y-0.034,0.57),(0.012,0.012,0.88),gold,0.003)
-for side in (-1,1):
-    x=side*0.405
-    add_box("Custom mosque • carved entrance pilaster",(x,portal_y-0.025,0.60),(0.105,0.09,1.18),gold,0.018)
-    add_box("Custom mosque • pilaster emerald inset",(x,portal_y-0.078,0.61),(0.052,0.012,0.91),emerald,0.008)
-    for z in (0.18,0.36,0.88,1.08):
-        add_box("Custom mosque • pilaster gold collar",(x,portal_y-0.09,z),(0.13,0.025,0.025),gold_light,0.006)
-add_arch_outline("Custom mosque • outer gold pointed archivolt",0,portal_y-0.085,0.08,0.98,0.83,1.38,gold_light,0.026)
-add_arch_outline("Custom mosque • inner emerald arch reveal",0,portal_y-0.095,0.13,0.78,0.78,1.25,emerald,0.018)
-add_arch_outline("Custom mosque • inner gilded pinstripe",0,portal_y-0.112,0.17,0.69,0.76,1.19,gold,0.009)
-# Door panels and eight raised brass studs provide actual relief, not a flat texture.
-for side in (-1,1):
-    add_box("Custom mosque • carved door panel",(side*0.17,portal_y-0.045,0.59),(0.22,0.018,0.65),gold,0.012)
-    add_box("Custom mosque • inset door panel",(side*0.17,portal_y-0.058,0.59),(0.19,0.012,0.62),emerald,0.01)
-    for z in (0.36,0.59,0.82):
-        bpy.ops.mesh.primitive_uv_sphere_add(segments=16,ring_count=8,radius=0.018,location=(side*0.17,portal_y-0.078,z))
-        stud=bpy.context.object
-        stud.name="Custom mosque • brass door rosette"
-        stud.scale=(1.0,0.35,1.0)
-        stud.data.materials.append(gold_light)
-# Small geometric star medallions flanking the portal.
-for x in (-0.62,0.62):
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=24,ring_count=12,radius=0.075,location=(x,portal_y-0.06,0.82))
-    med=bpy.context.object
-    med.name="Custom mosque • facade medallion"
-    med.scale=(1.0,0.22,1.0)
-    med.data.materials.append(gold)
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=16,ring_count=8,radius=0.026,location=(x,portal_y-0.085,0.82))
-    center=bpy.context.object
-    center.name="Custom mosque • medallion center"
-    center.scale=(1.0,0.25,1.0)
-    center.data.materials.append(gold_light)
-
 # Two mature broad-canopy trees frame the courtyard and physically anchor the banner rope.
 tree_root, tree_objects = import_group(
     "broadleaf_canopy_tree.glb", "Blessed-tree-inspired left broad canopy", 0.145, (-2.42, -0.48, 0.0)
@@ -261,6 +186,83 @@ gold_light = pbr_material("Ramadan • engraved gold", (0.94, 0.68, 0.25), 0.72,
 emerald = pbr_material("Ramadan • deep emerald silk", (0.012, 0.18, 0.105), 0.08, 0.48)
 night_ground = pbr_material("Ramadan • midnight garden stone", (0.012, 0.035, 0.029), 0.18, 0.34)
 flame_mat = pbr_material("Ramadan • living amber flame", (1.0, 0.19, 0.018), 0.0, 0.25, (1.0, 0.13, 0.008))
+
+# Hand-built architectural facade layer: custom meshwork authored in Blender
+# to enrich the imported massing with a coherent, inspectable 3D entrance.
+def add_box(name, location, scale, material, bevel=0.0):
+    bpy.ops.mesh.primitive_cube_add(size=1, location=location)
+    obj=bpy.context.object
+    obj.name=name
+    obj.dimensions=scale
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    obj.data.materials.append(material)
+    if bevel:
+        mod=obj.modifiers.new("Hand-finished stone edges","BEVEL")
+        mod.width=bevel
+        mod.segments=3
+        obj.modifiers.new("Facade weighted normals","WEIGHTED_NORMAL")
+    return obj
+
+def add_arch_outline(name, cx, y, base_z, width, spring_z, crown_z, material, thickness=0.018):
+    # A true 3D extruded curve following the horseshoe-like pointed Islamic arch.
+    points=[(-width/2,base_z),(-width/2,spring_z)]
+    half=width/2
+    for i in range(25):
+        t=i/24
+        x=-half+2*half*t
+        z=spring_z+(crown_z-spring_z)*math.sin(math.pi*t)**0.78
+        points.append((x,z))
+    points.append((width/2,base_z))
+    curve=bpy.data.curves.new(name+" • carved profile","CURVE")
+    curve.dimensions="3D"
+    curve.bevel_depth=thickness
+    curve.bevel_resolution=4
+    spline=curve.splines.new("POLY")
+    spline.points.add(len(points)-1)
+    for p,(x,z) in zip(spline.points,points):
+        p.co=(cx+x,y,z,1)
+    obj=bpy.data.objects.new(name,curve)
+    bpy.context.collection.objects.link(obj)
+    obj.data.materials.append(material)
+    return obj
+
+# Main entrance: recessed double door, layered pointed arch, pilasters and gold archivolt.
+portal_y=-2.035
+add_box("Custom mosque • recessed emerald double door",(0,portal_y,0.57),(0.70,0.055,0.94),emerald,0.025)
+add_box("Custom mosque • door central seam",(0,portal_y-0.034,0.57),(0.012,0.012,0.88),gold,0.003)
+for side in (-1,1):
+    x=side*0.405
+    add_box("Custom mosque • carved entrance pilaster",(x,portal_y-0.025,0.60),(0.105,0.09,1.18),gold,0.018)
+    add_box("Custom mosque • pilaster emerald inset",(x,portal_y-0.078,0.61),(0.052,0.012,0.91),emerald,0.008)
+    for z in (0.18,0.36,0.88,1.08):
+        add_box("Custom mosque • pilaster gold collar",(x,portal_y-0.09,z),(0.13,0.025,0.025),gold_light,0.006)
+add_arch_outline("Custom mosque • outer gold pointed archivolt",0,portal_y-0.085,0.08,0.98,0.83,1.38,gold_light,0.026)
+add_arch_outline("Custom mosque • inner emerald arch reveal",0,portal_y-0.095,0.13,0.78,0.78,1.25,emerald,0.018)
+add_arch_outline("Custom mosque • inner gilded pinstripe",0,portal_y-0.112,0.17,0.69,0.76,1.19,gold,0.009)
+# Door panels and eight raised brass studs provide actual relief, not a flat texture.
+for side in (-1,1):
+    add_box("Custom mosque • carved door panel",(side*0.17,portal_y-0.045,0.59),(0.22,0.018,0.65),gold,0.012)
+    add_box("Custom mosque • inset door panel",(side*0.17,portal_y-0.058,0.59),(0.19,0.012,0.62),emerald,0.01)
+    for z in (0.36,0.59,0.82):
+        bpy.ops.mesh.primitive_uv_sphere_add(segments=16,ring_count=8,radius=0.018,location=(side*0.17,portal_y-0.078,z))
+        stud=bpy.context.object
+        stud.name="Custom mosque • brass door rosette"
+        stud.scale=(1.0,0.35,1.0)
+        stud.data.materials.append(gold_light)
+# Small geometric star medallions flanking the portal.
+for x in (-0.62,0.62):
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=24,ring_count=12,radius=0.075,location=(x,portal_y-0.06,0.82))
+    med=bpy.context.object
+    med.name="Custom mosque • facade medallion"
+    med.scale=(1.0,0.22,1.0)
+    med.data.materials.append(gold)
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=16,ring_count=8,radius=0.026,location=(x,portal_y-0.085,0.82))
+    center=bpy.context.object
+    center.name="Custom mosque • medallion center"
+    center.scale=(1.0,0.25,1.0)
+    center.data.materials.append(gold_light)
+
+
 
 # A softly reflective, hero-sized courtyard plane; it must not dominate Filament auto-framing.
 bpy.ops.mesh.primitive_plane_add(size=5.8, location=(0, 0, -0.018))
