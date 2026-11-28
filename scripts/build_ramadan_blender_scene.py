@@ -447,7 +447,7 @@ camera_data = bpy.data.cameras.new("Ramadan hero preview camera")
 camera = bpy.data.objects.new("Ramadan hero preview camera", camera_data)
 scene.collection.objects.link(camera)
 camera.location = (3.1, -11.8, 4.9)
-target = Vector((0.0, -0.15, 1.48)
+target = Vector((0.0, -0.15, 1.48))
 camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
 camera_data.lens = 48
 scene.camera = camera
