@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+// Rebuild after the validated 3D scene asset update.
 android {
     namespace = "com.christmasdream.launcher"
     compileSdk = 36
