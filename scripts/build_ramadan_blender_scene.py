@@ -132,6 +132,54 @@ lantern_right_root, lantern_right_objects = import_group(
     "brass_hurricane_lantern.glb", "Right brass lantern", 3.65, (0.98, -2.25, 0.0)
 )
 
+# Dense, layered broadleaf foliage overlay with curved individual leaves.
+def add_realistic_leaf_canopy(cx, cy, seed):
+    rng = random.Random(seed)
+    leaf_mats = [
+        pbr_material("Foliage • deep emerald", (0.018, 0.105, 0.045), 0.0, 0.82),
+        pbr_material("Foliage • forest green", (0.035, 0.19, 0.072), 0.0, 0.78),
+        pbr_material("Foliage • fresh leaf", (0.075, 0.27, 0.105), 0.0, 0.74),
+        pbr_material("Foliage • moonlit leaf", (0.12, 0.31, 0.14), 0.0, 0.72),
+    ]
+    verts, faces, material_ids = [], [], []
+    clusters = [(-0.48,0.00,2.28,0.68,0.56,0.48),(0.00,0.00,2.52,0.76,0.62,0.52),
+                (0.48,0.02,2.30,0.68,0.55,0.48),(-0.22,0.08,2.83,0.60,0.48,0.42),
+                (0.30,0.06,2.84,0.60,0.48,0.42),(0.00,-0.34,2.20,0.68,0.48,0.40)]
+    for ox,oy,oz,rx,ry,rz in clusters:
+        for _ in range(190):
+            while True:
+                dx,dy,dz=(rng.uniform(-1,1) for _ in range(3))
+                if dx*dx+dy*dy+dz*dz <= 1: break
+            px,py,pz=cx+ox+dx*rx,cy+oy+dy*ry,oz+dz*rz
+            length=rng.uniform(0.105,0.19)
+            width=length*rng.uniform(0.28,0.48)
+            angle=rng.uniform(0,math.tau)
+            ux,uy=math.cos(angle),math.sin(angle)
+            vx,vy=-uy,ux
+            base=len(verts)
+            verts.extend([(px-ux*length*0.5,py-uy*length*0.5,pz),
+                (px-vx*width*0.5,py-vy*width*0.5,pz+0.012),
+                (px+ux*length*0.12-vx*width*0.5,py+uy*length*0.12-vy*width*0.5,pz+0.025),
+                (px+ux*length*0.12+vx*width*0.5,py+uy*length*0.12+vy*width*0.5,pz+0.025),
+                (px+vx*width*0.5,py+vy*width*0.5,pz+0.012),
+                (px+ux*length*0.5,py+uy*length*0.5,pz+0.004)])
+            faces.extend([(base,base+1,base+2),(base,base+2,base+3),
+                          (base,base+3,base+4),(base,base+4,base+5)])
+            mi=rng.choices(range(4),[24,42,27,7])[0]
+            material_ids.extend([mi]*4)
+    mesh=bpy.data.meshes.new("Layered broadleaf canopy • individual leaves")
+    mesh.from_pydata(verts,[],faces)
+    for mat in leaf_mats: mesh.materials.append(mat)
+    mesh.update()
+    obj=bpy.data.objects.new("Dense realistic foliage overlay",mesh)
+    bpy.context.collection.objects.link(obj)
+    for poly,mi in zip(mesh.polygons,material_ids):
+        poly.material_index=mi
+        poly.use_smooth=True
+
+add_realistic_leaf_canopy(-2.42,-0.48,1201)
+add_realistic_leaf_canopy(2.42,-0.48,1202)
+
 # Warm gold, emerald textile and night-ground materials.
 gold = pbr_material("Ramadan • brushed antique gold", (0.72, 0.39, 0.095), 0.82, 0.22)
 gold_light = pbr_material("Ramadan • engraved gold", (0.94, 0.68, 0.25), 0.72, 0.2)
@@ -152,7 +200,7 @@ curve.bevel_depth = 0.012
 curve.bevel_resolution = 4
 spline = curve.splines.new("BEZIER")
 spline.bezier_points.add(2)
-for bp, co in zip(spline.bezier_points, [(-2.42, -0.62, 2.82), (0, -0.62, 2.60), (2.42, -0.62, 2.82)]):
+for bp, co in zip(spline.bezier_points, [(-2.42, -1.12, 2.82), (0, -1.12, 2.60), (2.42, -1.12, 2.82)]):
     bp.co = co
     bp.handle_left_type = "AUTO"
     bp.handle_right_type = "AUTO"
@@ -172,7 +220,7 @@ def make_flag(index, letter, x):
             wave = 0.055 * math.sin(u * math.pi * 2.2 + index * 0.7) * v
             sag = 0.055 * math.sin(u * math.pi)
             z = 2.47 - v * height + sag * v
-            verts.append((x + (u - 0.5) * width, -0.63 + wave, z))
+            verts.append((x + (u - 0.5) * width, -1.13 + wave, z))
     for iz in range(nz):
         for ix in range(nx):
             a = iz * (nx + 1) + ix
@@ -205,7 +253,7 @@ def make_flag(index, letter, x):
     text_curve.bevel_depth = 0.0015
     text_obj = bpy.data.objects.new("Gold lettering • " + letter, text_curve)
     bpy.context.collection.objects.link(text_obj)
-    text_obj.location = (x, -0.69, 2.47 - height * 0.50)
+    text_obj.location = (x, -1.165, 2.47 - height * 0.50)
     text_obj.rotation_euler = (math.radians(90), 0, 0)
     text_obj.data.materials.append(gold_light)
 
@@ -257,8 +305,8 @@ star.rotation_euler.x = math.radians(90)
 # Hand-finished 3D brass detailing around both lantern glass chambers:
 # engraved collars, eight structural ribs, a crown and a small finial.
 def decorate_lantern(cx, cy):
-    for z, radius, minor in [(0.42, 0.125, 0.009), (0.72, 0.125, 0.009),
-                             (0.46, 0.105, 0.004), (0.68, 0.105, 0.004)]:
+    for z, radius, minor in [(0.15, 0.125, 0.009), (0.34, 0.125, 0.009),
+                             (0.18, 0.105, 0.004), (0.31, 0.105, 0.004)]:
         bpy.ops.mesh.primitive_torus_add(
             major_segments=48, minor_segments=10,
             major_radius=radius, minor_radius=minor,
@@ -279,13 +327,13 @@ def decorate_lantern(cx, cy):
         rib.name = "Lantern • brass glass guard rib"
         rib.data.materials.append(gold_light)
     bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=12, radius=0.025,
-                                         location=(cx, cy, 0.755))
+                                         location=(cx, cy, 0.365))
     crown = bpy.context.object
     crown.name = "Lantern • polished crown"
     crown.scale = (1.5, 1.5, 0.65)
     crown.data.materials.append(gold)
     bpy.ops.mesh.primitive_cone_add(vertices=24, radius1=0.018, radius2=0.002,
-                                    depth=0.055, location=(cx, cy, 0.795))
+                                    depth=0.045, location=(cx, cy, 0.405))
     finial = bpy.context.object
     finial.name = "Lantern • pointed finial"
     finial.data.materials.append(gold_light)
@@ -316,7 +364,7 @@ def create_flame(name, x, y):
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.collection.objects.link(obj)
     obj.data.materials.append(flame_mat)
-    obj.location.z = 0.47
+    obj.location.z = 0.18
     obj.scale = (1, 1, 1)
     for frame, sx, sy, sz in [(1, 1, 1, 1), (12, 0.94, 0.94, 1.06), (24, 1.04, 1.03, 0.96), (36, 0.96, 0.97, 1.04), (48, 1, 1, 1)]:
         obj.scale = (sx, sy, sz)
@@ -327,7 +375,7 @@ def create_flame(name, x, y):
     light_data.shadow_soft_size = 0.18
     light = bpy.data.objects.new(name + " • warm glow", light_data)
     bpy.context.collection.objects.link(light)
-    light.location = (x, y, 0.60)
+    light.location = (x, y, 0.255)
     for frame, energy in [(1, 7), (12, 9), (24, 6), (36, 8), (48, 7)]:
         light_data.energy = energy
         light_data.keyframe_insert(data_path="energy", frame=frame)
@@ -379,7 +427,7 @@ scene.world.color = (0.002, 0.004, 0.012)
 scene.world.use_nodes = True
 world_bg = scene.world.node_tree.nodes.get("Background")
 world_bg.inputs["Color"].default_value = (0.0015, 0.004, 0.018, 1.0)
-world_bg.inputs["Strength"].default_value = 0.16
+world_bg.inputs["Strength"].default_value = 0.055
 scene.view_settings.view_transform = "AgX"
 scene.view_settings.look = "AgX - Medium High Contrast"
 scene.view_settings.exposure = 0.15
@@ -398,8 +446,8 @@ elif "BLENDER_EEVEE" in available_engines:
 camera_data = bpy.data.cameras.new("Ramadan hero preview camera")
 camera = bpy.data.objects.new("Ramadan hero preview camera", camera_data)
 scene.collection.objects.link(camera)
-camera.location = (3.5, -13.0, 5.25)
-target = Vector((0.0, -0.10, 1.50))
+camera.location = (3.1, -11.8, 4.9)
+target = Vector((0.0, -0.15, 1.48)
 camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
 camera_data.lens = 48
 scene.camera = camera
