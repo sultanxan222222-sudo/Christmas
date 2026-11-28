@@ -321,7 +321,7 @@ def decorate_lantern(cx, cy):
         y = cy + 0.112 * math.sin(angle)
         bpy.ops.mesh.primitive_cylinder_add(
             vertices=12, radius=0.0045, depth=0.155,
-            location=(x, y, 0.57)
+            location=(x, y, 0.245)
         )
         rib = bpy.context.object
         rib.name = "Lantern • brass glass guard rib"
