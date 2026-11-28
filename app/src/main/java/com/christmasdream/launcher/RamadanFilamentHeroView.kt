@@ -2,6 +2,7 @@ package com.christmasdream.launcher
 
 import android.content.Context
 import android.graphics.Color
+import android.content.pm.PackageManager
 import android.util.AttributeSet
 import android.view.Choreographer
 import android.view.MotionEvent
@@ -32,11 +33,20 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
     private var prayerLightOn = false
     private var isRendering = false
     private var animationStartNanos = 0L
+    private var lastRenderNanos = 0L
+    private val isTvDevice by lazy { context.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) }
+    private val frameIntervalNanos = 1_000_000_000L / 30L
 
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
             val viewer = modelViewer
             if (isRendering && viewer != null) {
+                // Cap GPU work to 30 FPS; Choreographer still follows the display clock.
+                if (lastRenderNanos != 0L && frameTimeNanos - lastRenderNanos < frameIntervalNanos) {
+                    Choreographer.getInstance().postFrameCallback(this)
+                    return
+                }
+                lastRenderNanos = frameTimeNanos
                 runCatching {
                     val animator = viewer.animator
                     if (animator != null && animator.animationCount > 0) {
@@ -110,6 +120,7 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
                 modelViewer = null
                 surface = null
                 animationStartNanos = 0L
+                lastRenderNanos = 0L
             }
         })
 
@@ -154,19 +165,21 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
                 if (prayerLightOn) 0.57f else 0.82f
             )
 
+            val sceneQuality = if (isTvDevice) View.QualityLevel.LOW else View.QualityLevel.MEDIUM
             viewer.view.renderQuality = viewer.view.renderQuality.apply {
-                hdrColorBuffer = View.QualityLevel.MEDIUM
+                hdrColorBuffer = sceneQuality
             }
             viewer.view.dynamicResolutionOptions = viewer.view.dynamicResolutionOptions.apply {
                 enabled = true
-                quality = View.QualityLevel.MEDIUM
+                quality = sceneQuality
             }
             viewer.view.antiAliasing = View.AntiAliasing.FXAA
+            // Ambient occlusion is expensive on older TV GPUs; preserve it on phones only.
             viewer.view.ambientOcclusionOptions = viewer.view.ambientOcclusionOptions.apply {
-                enabled = true
+                enabled = !isTvDevice
             }
             viewer.view.bloomOptions = viewer.view.bloomOptions.apply {
-                enabled = true
+                enabled = !isTvDevice
             }
 
             startRendering()
@@ -217,12 +230,14 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
     private fun startRendering() {
         if (modelViewer == null || isRendering) return
         isRendering = true
+        lastRenderNanos = 0L
         Choreographer.getInstance().removeFrameCallback(frameCallback)
         Choreographer.getInstance().postFrameCallback(frameCallback)
     }
 
     private fun stopRendering() {
         isRendering = false
+        lastRenderNanos = 0L
         Choreographer.getInstance().removeFrameCallback(frameCallback)
     }
 
