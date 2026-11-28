@@ -151,20 +151,24 @@ def add_realistic_leaf_canopy(cx, cy, seed):
                 dx,dy,dz=(rng.uniform(-1,1) for _ in range(3))
                 if dx*dx+dy*dy+dz*dz <= 1: break
             px,py,pz=cx+ox+dx*rx,cy+oy+dy*ry,oz+dz*rz
-            length=rng.uniform(0.105,0.19)
-            width=length*rng.uniform(0.28,0.48)
+            length=rng.uniform(0.16,0.255)
+            width=length*rng.uniform(0.34,0.56)
             angle=rng.uniform(0,math.tau)
             ux,uy=math.cos(angle),math.sin(angle)
             vx,vy=-uy,ux
             base=len(verts)
-            verts.extend([(px-ux*length*0.5,py-uy*length*0.5,pz),
-                (px-vx*width*0.5,py-vy*width*0.5,pz+0.012),
-                (px+ux*length*0.12-vx*width*0.5,py+uy*length*0.12-vy*width*0.5,pz+0.025),
-                (px+ux*length*0.12+vx*width*0.5,py+uy*length*0.12+vy*width*0.5,pz+0.025),
-                (px+vx*width*0.5,py+vy*width*0.5,pz+0.012),
-                (px+ux*length*0.5,py+uy*length*0.5,pz+0.004)])
-            faces.extend([(base,base+1,base+2),(base,base+2,base+3),
-                          (base,base+3,base+4),(base,base+4,base+5)])
+            # Sculpted leaf: tapered silhouette, raised central vein and curved surface.
+            verts.extend([
+                (px-ux*length*0.50,py-uy*length*0.50,pz),
+                (px-ux*length*0.22-vx*width*0.42,py-uy*length*0.22-vy*width*0.42,pz+0.008),
+                (px+ux*length*0.08-vx*width*0.50,py+uy*length*0.08-vy*width*0.50,pz+0.014),
+                (px+ux*length*0.08,py+uy*length*0.08,pz+0.040),
+                (px+ux*length*0.08+vx*width*0.50,py+uy*length*0.08+vy*width*0.50,pz+0.014),
+                (px-ux*length*0.22+vx*width*0.42,py-uy*length*0.22+vy*width*0.42,pz+0.008),
+                (px+ux*length*0.50,py+uy*length*0.50,pz+0.002)])
+            faces.extend([(base,base+1,base+3),(base+1,base+2,base+3),
+                          (base+2,base+4,base+3),(base+4,base+5,base+3),
+                          (base+5,base+6,base+3)])
             mi=rng.choices(range(4),[24,42,27,7])[0]
             material_ids.extend([mi]*4)
     mesh=bpy.data.meshes.new("Layered broadleaf canopy • individual leaves")
@@ -179,6 +183,46 @@ def add_realistic_leaf_canopy(cx, cy, seed):
 
 add_realistic_leaf_canopy(-2.42,-0.48,1201)
 add_realistic_leaf_canopy(2.42,-0.48,1202)
+ 
+# Replace the generic imported cat silhouette with a bespoke, readable sleeping kitten.
+for source_cat in cat_objects:
+    source_cat.hide_render = True
+    source_cat.hide_viewport = True
+cat_cream = pbr_material("Kitten • warm ivory fur", (0.82,0.66,0.48), 0.0, 0.88)
+cat_white = pbr_material("Kitten • soft white chest", (0.96,0.88,0.72), 0.0, 0.9)
+cat_orange = pbr_material("Kitten • ginger patches", (0.48,0.16,0.045), 0.0, 0.84)
+cat_pink = pbr_material("Kitten • pink nose and ears", (0.65,0.22,0.20), 0.0, 0.75)
+cat_dark = pbr_material("Kitten • closed eyes", (0.055,0.025,0.018), 0.0, 0.7)
+def kitten_ellipsoid(name, loc, scale, mat):
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=20, location=loc)
+    ob=bpy.context.object
+    ob.name=name
+    ob.scale=scale
+    bpy.ops.object.shade_smooth()
+    ob.data.materials.append(mat)
+    return ob
+# Body lies along the courtyard, head turned slightly toward the viewer.
+kitten_ellipsoid("Sleeping kitten • curled ivory body",(-1.72,-1.52,0.20),(0.48,0.29,0.22),cat_cream)
+kitten_ellipsoid("Sleeping kitten • white chest",(-1.42,-1.64,0.19),(0.24,0.24,0.20),cat_white)
+kitten_ellipsoid("Sleeping kitten • rounded head",(-1.27,-1.43,0.30),(0.23,0.22,0.20),cat_cream)
+for side in (-1,1):
+    ear=kitten_ellipsoid("Sleeping kitten • pointed ear",(-1.40+side*0.22,-1.43,0.46),(0.085,0.075,0.15),cat_orange)
+    ear.rotation_euler.y=side*math.radians(-17)
+    kitten_ellipsoid("Sleeping kitten • inner ear",(-1.40+side*0.22,-1.495,0.46),(0.043,0.018,0.082),cat_pink)
+    # closed curved eyelids as slim dark raised ellipsoids
+    eye=kitten_ellipsoid("Sleeping kitten • closed eyelid",(-1.12,-1.625,0.32),(0.052,0.012,0.014),cat_dark)
+    eye.rotation_euler.z=side*math.radians(9)
+kitten_ellipsoid("Sleeping kitten • nose",(-1.055,-1.632,0.275),(0.025,0.018,0.018),cat_pink)
+for x in (-1.48,-1.18):
+    kitten_ellipsoid("Sleeping kitten • front paw",(x,-1.72,0.095),(0.13,0.105,0.075),cat_white)
+# Curled tail: smooth bevelled curve, clearly separate from body.
+tail_curve=bpy.data.curves.new("Sleeping kitten • curled tail","CURVE")
+tail_curve.dimensions="3D"; tail_curve.bevel_depth=0.065; tail_curve.bevel_resolution=5
+tail_spline=tail_curve.splines.new("BEZIER"); tail_spline.bezier_points.add(3)
+for bp,co in zip(tail_spline.bezier_points,[(-2.08,-1.50,0.20),(-2.22,-1.32,0.29),(-2.12,-1.16,0.36),(-1.96,-1.28,0.31)]):
+    bp.co=co; bp.handle_left_type="AUTO"; bp.handle_right_type="AUTO"
+tail_obj=bpy.data.objects.new("Sleeping kitten • curled tail",tail_curve)
+bpy.context.collection.objects.link(tail_obj); tail_obj.data.materials.append(cat_orange)
 
 # Warm gold, emerald textile and night-ground materials.
 gold = pbr_material("Ramadan • brushed antique gold", (0.72, 0.39, 0.095), 0.82, 0.22)
