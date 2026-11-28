@@ -134,7 +134,14 @@ class RamadanFilamentHeroView @JvmOverloads constructor(
             }
 
             val bytes = context.assets.open("models/ramadan_dream_scene.glb").use { it.readBytes() }
-            viewer.loadModelGlb(ByteBuffer.wrap(bytes))
+            // Filament's native gltfio loader requires a direct buffer. ByteBuffer.wrap()
+            // creates a heap buffer whose address is not available to JNI, which can
+            // leave the SurfaceView showing only its clear color on Android TV.
+            val glbBuffer = ByteBuffer.allocateDirect(bytes.size).apply {
+                put(bytes)
+                flip()
+            }
+            viewer.loadModelGlb(glbBuffer)
             viewer.autoPlayAnimations = false
             animationStartNanos = 0L
             viewer.transformToUnitCube()
