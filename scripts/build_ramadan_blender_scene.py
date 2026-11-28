@@ -95,7 +95,7 @@ def tint_mosque(objects):
 
 # Imported high-detail licensed source models.
 mosque_root, mosque_objects = import_group(
-    "mosque_two_minarets.glb", "Emerald Ottoman mosque", 0.068, (0.0, 0.0, 0.0)
+    "mosque_two_minarets.glb", "Emerald Ottoman mosque", 0.073, (0.0, 0.0, 0.0)
 )
 tint_mosque(mosque_objects)
 
@@ -123,7 +123,7 @@ for tree_obj in tree_objects + tree_right_objects:
                     if tree_rough:
                         tree_rough.default_value = 0.72
 cat_root, cat_objects = import_group(
-    "sleeping_cat.glb", "Sleeping kitten • clearly visible hero animal", 3.15, (-1.62, -1.18, 0.02)
+    "sleeping_cat.glb", "Sleeping kitten • clearly visible hero animal", 2.95, (-1.86, -1.34, 0.02)
 )
 lantern_left_root, lantern_left_objects = import_group(
     "brass_hurricane_lantern.glb", "Left brass lantern", 3.65, (-0.98, -2.25, 0.0)
@@ -200,12 +200,12 @@ def make_flag(index, letter, x):
     text_curve.body = letter
     text_curve.align_x = "CENTER"
     text_curve.align_y = "CENTER"
-    text_curve.size = 0.245
+    text_curve.size = 0.285
     text_curve.extrude = 0.004
     text_curve.bevel_depth = 0.0015
     text_obj = bpy.data.objects.new("Gold lettering • " + letter, text_curve)
     bpy.context.collection.objects.link(text_obj)
-    text_obj.location = (x, -0.665, 2.42 - height * 0.52)
+    text_obj.location = (x, -0.69, 2.47 - height * 0.50)
     text_obj.rotation_euler = (math.radians(90), 0, 0)
     text_obj.data.materials.append(gold_light)
 
@@ -367,7 +367,7 @@ for index in range(42):
 
 # A subtle breathing motion for the sleeping kitten.
 for frame, factor in [(1, 1.0), (30, 1.018), (60, 1.0)]:
-    cat_root.scale = (3.15 * factor, 3.15, 3.15 * factor)
+    cat_root.scale = (2.95 * factor, 2.95, 2.95 * factor)
     cat_root.keyframe_insert(data_path="scale", frame=frame)
 
 # Keep the scene in a gentle looping animation range.
@@ -398,26 +398,36 @@ elif "BLENDER_EEVEE" in available_engines:
 camera_data = bpy.data.cameras.new("Ramadan hero preview camera")
 camera = bpy.data.objects.new("Ramadan hero preview camera", camera_data)
 scene.collection.objects.link(camera)
-camera.location = (4.2, -14.2, 5.8)
-target = Vector((0.0, -0.05, 1.45))
+camera.location = (3.5, -13.0, 5.25)
+target = Vector((0.0, -0.10, 1.50))
 camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
 camera_data.lens = 48
 scene.camera = camera
 key_data = bpy.data.lights.new("Preview softbox key", "AREA")
-key_data.energy = 1100
+key_data.energy = 1900
 key_data.shape = "DISK"
 key_data.size = 7.0
 key_obj = bpy.data.objects.new("Preview softbox key", key_data)
 scene.collection.objects.link(key_obj)
 key_obj.location = (-5.0, -3.0, 8.5)
+# Warm frontal fill lifts the mosque facade, kitten and brass lanterns out of shadow.
+fill_data = bpy.data.lights.new("Warm courtyard fill", "AREA")
+fill_data.energy = 950
+fill_data.color = (1.0, 0.72, 0.46)
+fill_data.shape = "DISK"
+fill_data.size = 5.0
+fill_obj = bpy.data.objects.new("Warm courtyard fill", fill_data)
+scene.collection.objects.link(fill_obj)
+fill_obj.location = (0.0, -6.0, 3.6)
+fill_obj.rotation_euler = (Vector((0.0, 0.0, 1.2)) - fill_obj.location).to_track_quat("-Z", "Y").to_euler()
 key_obj.rotation_euler = (Vector((0.0, 0.0, 1.0)) - key_obj.location).to_track_quat("-Z", "Y").to_euler()
 scene.render.resolution_x = 1920
 scene.render.resolution_y = 1080
-scene.render.resolution_percentage = 82
+scene.render.resolution_percentage = 90
 scene.render.image_settings.file_format = "PNG"
 scene.render.filepath = os.path.join(ROOT, "ramadan-3d-preview.png")
 moon_data = bpy.data.lights.new("Moonlight • cool cinematic rim", "AREA")
-moon_data.energy = 1850
+moon_data.energy = 1250
 moon_data.color = (0.28, 0.48, 0.82)
 moon_data.shape = "DISK"
 moon_data.size = 8.0
